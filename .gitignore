@@ -1,0 +1,247 @@
+# Custom
+NATS-sss-v1_0-50262-simple/
+NATS-tss-v1_0-3ffb9-simple/
+master_dataset/zc_nasbench201_cifar10_acc_spec_None.json
+master_dataset/zc_nasbench201_cifar10_acc_fft_None.json
+master_dataset/zc_nasbench201_cifar10_acc_fteuclid_None.json
+master_dataset/zc_nasbench201_cifar10_acc_llm_sum.json
+master_dataset/zc_transbench101-micro_class-scene_acc_spec_None.json
+master_dataset/zc_transbench101-micro_class-scene_acc_intarr_None.json
+bananas/master_dataset/*.json
+tss_NATSBench.csv
+master_dataset/
+NDS/nds_data/*.json
+
+darts/
+data/
+large_scale_run_logs/
+arch2vec/data/
+arch2vec/large_scale_run_logs/
+CATE/data/
+TA-GATES/
+nas_embedding_suite/NDS/
+nas_embedding_suite/embedding_datasets/
+nas_embedding_suite/old_code/
+zcp_generator/Amoeba_executed_hashes/
+zcp_generator/Amoeba_zcp_jobids/
+zcp_generator/Amoeba_zcps.csv
+zcp_generator/Amoeba_zcps/
+zcp_generator/DARTS_executed_hashes/
+zcp_generator/DARTS_fix-w-d_executed_hashes/
+zcp_generator/DARTS_fix-w-d_zcp_jobids/
+zcp_generator/DARTS_fix-w-d_zcps.csv
+zcp_generator/DARTS_fix-w-d_zcps/
+zcp_generator/DARTS_lr-wd_executed_hashes/
+zcp_generator/DARTS_lr-wd_zcp_jobids/
+zcp_generator/DARTS_lr-wd_zcps.csv
+zcp_generator/DARTS_lr-wd_zcps/
+zcp_generator/DARTS_zcp_jobids/
+zcp_generator/DARTS_zcps.csv
+zcp_generator/DARTS_zcps/
+zcp_generator/ENAS_executed_hashes/
+zcp_generator/ENAS_fix-w-d_executed_hashes/
+zcp_generator/ENAS_fix-w-d_zcp_jobids/
+zcp_generator/ENAS_fix-w-d_zcps.csv
+zcp_generator/ENAS_fix-w-d_zcps/
+zcp_generator/ENAS_zcp_jobids/
+zcp_generator/ENAS_zcps.csv
+zcp_generator/ENAS_zcps/
+zcp_generator/NASNet_executed_hashes/
+zcp_generator/NASNet_zcp_jobids/
+zcp_generator/NASNet_zcps.csv
+zcp_generator/NASNet_zcps/
+zcp_generator/NDS/
+zcp_generator/PNAS_executed_hashes/
+zcp_generator/PNAS_fix-w-d_executed_hashes/
+zcp_generator/PNAS_fix-w-d_zcp_jobids/
+zcp_generator/PNAS_fix-w-d_zcps.csv
+zcp_generator/PNAS_fix-w-d_zcps/
+zcp_generator/PNAS_zcp_jobids/
+zcp_generator/PNAS_zcps.csv
+zcp_generator/PNAS_zcps/
+zcp_generator/data/
+zcp_generator/large_scale_run_logs/
+*.zip
+*.pt
+*.pb
+*_cg_data.json
+*.pkl
+./GENNAPE/CG_data/CG_data
+./GENNAPE/cache
+./GENNAPE/data
+
+ImageNet16_120.json
+cifar100.json
+data.json
+cifar10_valid_converged.json
+NAS-Bench-201-v1_0-e61699.pth
+nasbench_only108.tfrecord
+
+
+temp/TransNASBench/large_scale_run_logs/
+tb101/
+temp/TransNASBench/transnas-bench_v10141024.pth
+*.pth
+*.pt
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+#poetry.lock
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#pdm.lock
+#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   in version control.
+#   https://pdm.fming.dev/#use-with-ide
+.pdm.toml
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+#.idea/
+
+
