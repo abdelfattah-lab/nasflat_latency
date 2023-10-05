@@ -16,4 +16,4 @@ conda activate unr
 
 cd /home/ya255/projects/flan_hardware/correlation_trainer
 
-python main_abl.py --seed 42 --name_desc archabl --sample_sizes 64 128 --batch_size 8 --space PNAS --timesteps 2 --representation adj_gin --gnn_type dense --forward_gcn_out_dims 128 128 128 --backward_gcn_out_dims 128 128 128 --replace_bgcn_mlp_dims 128 128 128 --back_mlp --back_y_info --num_trials 5
+python main_abl.py --seed 42 --name_desc archabl --sample_sizes 64 128 --batch_size 8 --space PNAS --timesteps 2 --representation adj_gin --gnn_type dense --forward_gcn_out_dims 128 128 128 --backward_gcn_out_dims 128 128 128 --replace_bgcn_mlp_dims 128 128 128 --back_mlp --back_y_info --num_trials 5  --ensemble_fuse_method add

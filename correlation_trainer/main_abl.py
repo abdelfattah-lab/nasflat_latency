@@ -36,7 +36,7 @@ parser.add_argument('--back_mlp', action="store_true")
 parser.add_argument('--back_opemb', action="store_true")
 parser.add_argument('--back_opemb_only', action="store_true")
 parser.add_argument('--back_y_info', action="store_true")
-parser.add_argument('--ensemble_fuse_method', type=str, default='mlp')        # add, mlp
+parser.add_argument('--ensemble_fuse_method', type=str, default='add')        # add, mlp
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--no_leakyrelu', action="store_true")
 parser.add_argument('--no_unique_attention_projection', action="store_true")
