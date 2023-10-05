@@ -219,6 +219,7 @@ class GIN_Model(nn.Module):
             unique_attention_projection = False,
             opattention = True,
             leakyrelu = True,
+            randopupdate = False,
             attention_rescale = False,
             back_opemb_only = False,
     ):
@@ -231,6 +232,7 @@ class GIN_Model(nn.Module):
         self.dinp = 2
         self.dual_gcn = dual_gcn
         self.num_zcps = num_zcps
+        self.randopupdate = randopupdate
         self.op_embedding_dim = op_embedding_dim
         self.back_opemb_only = back_opemb_only
         self.node_embedding_dim = node_embedding_dim
@@ -291,7 +293,7 @@ class GIN_Model(nn.Module):
 
         # regression MLP
         self.mlp = []
-        reg_inp_dims = self.nn_emb_dims
+        reg_inp_dims = self.gcn_out_dims[-1]
         if self.input_zcp:
             reg_inp_dims += self.zcp_embedding_dim
         if self.dual_gcn:
@@ -515,64 +517,68 @@ class GIN_Model(nn.Module):
     def _update_op_emb(self, y, b_y, op_emb):
     # If activating, define updateop_embedder
         # --- UpdateOpEmb ---
-        if self.back_mlp:
-            if self.back_opemb_only:
-                in_embedding = op_emb
-            else:
-                if self.back_opemb and self.back_y_info:
-                    in_embedding = torch.cat(
-                        (
-                            op_emb.detach(),
-                            y.detach(),
-                            b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-                        ),
-                        dim = -1)
-                elif self.back_opemb==False and self.back_y_info:
-                    in_embedding = torch.cat(
-                        (
-                            y.detach(),
-                            b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-                        ),
-                        dim = -1)
-                elif self.back_opemb and self.back_y_info==False:
-                    in_embedding = torch.cat(
-                        (
-                            op_emb.detach(),
-                            b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-                        ),
-                        dim = -1)
+        if not self.randopupdate:
+            if self.back_mlp:
+                if self.back_opemb_only:
+                    in_embedding = op_emb
                 else:
-                    in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                    if self.back_opemb and self.back_y_info:
+                        in_embedding = torch.cat(
+                            (
+                                op_emb.detach(),
+                                y.detach(),
+                                b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                            ),
+                            dim = -1)
+                    elif self.back_opemb==False and self.back_y_info:
+                        in_embedding = torch.cat(
+                            (
+                                y.detach(),
+                                b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                            ),
+                            dim = -1)
+                    elif self.back_opemb and self.back_y_info==False:
+                        in_embedding = torch.cat(
+                            (
+                                op_emb.detach(),
+                                b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                            ),
+                            dim = -1)
+                    else:
+                        in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+            else:
+                if self.back_opemb_only:
+                    in_embedding = op_emb
+                else:
+                    if self.back_opemb and self.back_y_info:
+                        in_embedding = torch.cat(
+                            (
+                                op_emb.detach(),
+                                y.detach(),
+                                b_y
+                            ),
+                            dim = -1)
+                    elif self.back_opemb==False and self.back_y_info:
+                        in_embedding = torch.cat(
+                            (
+                                y.detach(),
+                                b_y
+                            ),
+                            dim = -1)
+                    elif self.back_opemb and self.back_y_info==False:
+                        in_embedding = torch.cat(
+                            (
+                                op_emb.detach(),
+                                b_y
+                            ),
+                            dim = -1)
+                    else:
+                        in_embedding = b_y
+            update = self.updateop_embedder(in_embedding)
+            op_emb = op_emb + self.updateopemb_scale * update
         else:
-            if self.back_opemb_only:
-                in_embedding = op_emb
-            else:
-                if self.back_opemb and self.back_y_info:
-                    in_embedding = torch.cat(
-                        (
-                            op_emb.detach(),
-                            y.detach(),
-                            b_y
-                        ),
-                        dim = -1)
-                elif self.back_opemb==False and self.back_y_info:
-                    in_embedding = torch.cat(
-                        (
-                            y.detach(),
-                            b_y
-                        ),
-                        dim = -1)
-                elif self.back_opemb and self.back_y_info==False:
-                    in_embedding = torch.cat(
-                        (
-                            op_emb.detach(),
-                            b_y
-                        ),
-                        dim = -1)
-                else:
-                    in_embedding = b_y
-        update = self.updateop_embedder(in_embedding)
-        op_emb = op_emb + self.updateopemb_scale * update
+            # slightly perturb op_emb
+            op_emb = op_emb + self.updateopemb_scale * torch.randn_like(op_emb)
         return op_emb
 
     def _final_process(self, y, op_inds):
