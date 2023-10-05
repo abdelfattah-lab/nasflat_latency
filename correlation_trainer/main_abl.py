@@ -32,12 +32,15 @@ parser.add_argument('--no_residual', action="store_true")
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
-parser.add_argument('--back_mlp', action="store_true")
-parser.add_argument('--back_opemb', action="store_true")
-parser.add_argument('--randopupdate', action="store_true")
-parser.add_argument('--back_opemb_only', action="store_true")
-parser.add_argument('--back_y_info', action="store_true")
-parser.add_argument('--ensemble_fuse_method', type=str, default='add')        # add, mlp
+parser.add_argument('--back_mlp', action="store_true")              # True for best result
+parser.add_argument('--back_opemb', action="store_true")            # True for best result
+parser.add_argument('--randopupdate', action="store_true")          # False for best result
+parser.add_argument('--back_opemb_only', action="store_true")       # False for best result
+parser.add_argument('--opemb_direct', action="store_true")          # True for best result (5/8 improvement)
+parser.add_argument('--unroll_fgcn', action="store_true")           # Need to test
+parser.add_argument('--back_y_info', action="store_true")           # False for best result
+parser.add_argument('--ensemble_fuse_method', type=str, default='add')   # add, mlp (Need to test)
+parser.add_argument('--detach_mode', type=str, default='default')        # How to detach before update operation embedding (default or detach_none best)
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--no_leakyrelu', action="store_true")
 parser.add_argument('--no_unique_attention_projection', action="store_true")
@@ -400,11 +403,14 @@ for tr_ in range(args.num_trials):
                                 fb_conversion_dims = args.fb_conversion_dims,
                                 replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
                                 residual=args.residual,
+                                unroll_fgcn = args.unroll_fgcn,
+                                detach_mode = args.detach_mode,
                                 back_mlp = args.back_mlp,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
                                 ensemble_fuse_method = args.ensemble_fuse_method,
                                 randopupdate = args.randopupdate,
+                                opemb_direct = args.opemb_direct,
                                 unique_attention_projection=args.unique_attention_projection,
                                 opattention=args.opattention,
                                 back_opemb_only = args.back_opemb_only,
@@ -418,13 +424,16 @@ for tr_ in range(args.num_trials):
                                 num_time_steps = args.timesteps,
                                 vertices = input_dim,
                                 none_op_ind = none_op_ind,
+                                unroll_fgcn = args.unroll_fgcn,
                                 input_zcp = False,
                                 gcn_out_dims = args.forward_gcn_out_dims,
                                 backward_gcn_out_dims = args.backward_gcn_out_dims,
                                 fb_conversion_dims = args.fb_conversion_dims,
                                 replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                detach_mode = args.detach_mode,
                                 residual=args.residual,
                                 back_mlp = args.back_mlp,
+                                opemb_direct = args.opemb_direct,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
                                 randopupdate = args.randopupdate,
@@ -445,8 +454,10 @@ for tr_ in range(args.num_trials):
                                 dual_gcn = False,
                                 num_time_steps = args.timesteps,
                                 num_zcps = num_zcps,
+                                unroll_fgcn = args.unroll_fgcn,
                                 vertices = input_dim,
                                 none_op_ind = none_op_ind,
+                                detach_mode = args.detach_mode,
                                 input_zcp = True,
                                 gcn_out_dims = args.forward_gcn_out_dims,
                                 backward_gcn_out_dims = args.backward_gcn_out_dims,
@@ -454,6 +465,7 @@ for tr_ in range(args.num_trials):
                                 replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
                                 residual=args.residual,
                                 back_mlp = args.back_mlp,
+                                opemb_direct = args.opemb_direct,
                                 back_opemb = args.back_opemb,
                                 randopupdate = args.randopupdate,
                                 back_y_info = args.back_y_info,
@@ -472,13 +484,16 @@ for tr_ in range(args.num_trials):
                                 num_zcps = num_zcps,
                                 vertices = input_dim,
                                 none_op_ind = none_op_ind,
+                                detach_mode = args.detach_mode,
                                 input_zcp = True,
                                 gcn_out_dims = args.forward_gcn_out_dims,
                                 backward_gcn_out_dims = args.backward_gcn_out_dims,
                                 fb_conversion_dims = args.fb_conversion_dims,
                                 residual=args.residual,
+                                unroll_fgcn = args.unroll_fgcn,
                                 back_mlp = args.back_mlp,
                                 randopupdate = args.randopupdate,
+                                opemb_direct = args.opemb_direct,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
                                 ensemble_fuse_method = args.ensemble_fuse_method,
@@ -551,14 +566,14 @@ filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 # parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 # parser.add_argument('--back_mlp', action="store_true")
 # parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
-header = "name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,spr,kdt,spr_std,kdt_std"
+header = "name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,detach_mode,opemb_direct,unroll_fgcn,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
 
 with open(filename, 'a') as f:
     for key in samp_eff.keys():
-        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
+        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
                 (
                     str(args.name_desc),
                     str(args.seed),
@@ -588,6 +603,9 @@ with open(filename, 'a') as f:
                     str(args.ensemble_fuse_method),
                     str(args.back_opemb_only),
                     str(args.randopupdate),
+                    str(args.detach_mode),
+                    str(args.opemb_direct),
+                    str(args.unroll_fgcn),
                     str(record_[key][2]),
                     str(record_[key][0]),
                     str(record_[key][3]),
