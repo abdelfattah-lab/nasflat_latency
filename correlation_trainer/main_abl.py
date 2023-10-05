@@ -34,7 +34,9 @@ parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--back_mlp', action="store_true")
 parser.add_argument('--back_opemb', action="store_true")
+parser.add_argument('--back_opemb_only', action="store_true")
 parser.add_argument('--back_y_info', action="store_true")
+parser.add_argument('--ensemble_fuse_method', type=str, default='mlp')        # add, mlp
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--no_leakyrelu', action="store_true")
 parser.add_argument('--no_unique_attention_projection', action="store_true")
@@ -400,8 +402,10 @@ for tr_ in range(args.num_trials):
                                 back_mlp = args.back_mlp,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
                                 unique_attention_projection=args.unique_attention_projection,
                                 opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
                                 leakyrelu=args.leakyrelu,
                                 attention_rescale=args.attention_rescale)
             else:
@@ -421,8 +425,10 @@ for tr_ in range(args.num_trials):
                                 back_mlp = args.back_mlp,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
                                 unique_attention_projection=args.unique_attention_projection,
                                 opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
                                 leakyrelu=args.leakyrelu,
                                 attention_rescale=args.attention_rescale)
         elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
@@ -447,8 +453,10 @@ for tr_ in range(args.num_trials):
                                 back_mlp = args.back_mlp,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
                                 unique_attention_projection=args.unique_attention_projection,
                                 opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
                                 leakyrelu=args.leakyrelu,
                                 attention_rescale=args.attention_rescale)
             else:
@@ -468,8 +476,10 @@ for tr_ in range(args.num_trials):
                                 back_mlp = args.back_mlp,
                                 back_opemb = args.back_opemb,
                                 back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
                                 unique_attention_projection=args.unique_attention_projection,
                                 opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
                                 leakyrelu=args.leakyrelu,
                                 attention_rescale=args.attention_rescale)
         elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
@@ -536,14 +546,14 @@ filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 # parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 # parser.add_argument('--back_mlp', action="store_true")
 # parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
-header = "name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,spr,kdt,spr_std,kdt_std"
+header = "name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
 
 with open(filename, 'a') as f:
     for key in samp_eff.keys():
-        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
+        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
                 (
                     str(args.name_desc),
                     str(args.seed),
@@ -570,6 +580,8 @@ with open(filename, 'a') as f:
                     str('_'.join([str(x) for x in args.fb_conversion_dims])),
                     str(args.back_y_info),
                     str(args.back_opemb),
+                    str(args.ensemble_fuse_method),
+                    str(args.back_opemb_only),
                     str(record_[key][2]),
                     str(record_[key][0]),
                     str(record_[key][3]),

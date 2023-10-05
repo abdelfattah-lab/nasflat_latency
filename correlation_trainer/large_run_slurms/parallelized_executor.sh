@@ -22,8 +22,8 @@ while IFS= read -r line; do
         cat > "$slurm_file" <<EOL
 #!/bin/bash
 #SBATCH -J $job_identifier
-#SBATCH -o /home/ya255/projects/iclr_nas_embedding/correlation_trainer/large_scale_run_logs/%j.out
-#SBATCH -e /home/ya255/projects/iclr_nas_embedding/correlation_trainer/large_scale_run_logs/%j.err
+#SBATCH -o /home/ya255/projects/flan_hardware/correlation_trainer/large_scale_run_logs/%j.out
+#SBATCH -e /home/ya255/projects/flan_hardware/correlation_trainer/large_scale_run_logs/%j.err
 #SBATCH -N 1
 #SBATCH --mem=$mem
 #SBATCH -t 16:00:00
@@ -39,13 +39,13 @@ EOL
         echo "#SBATCH -n $n" >> "$slurm_file"
 
         cat >> "$slurm_file" <<EOL
-export PROJ_BPATH="/home/ya255/projects/iclr_nas_embedding"
+export PROJ_BPATH="/home/ya255/projects/flan_hardware"
 
 source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh 
 
 conda activate unr
 
-cd /home/ya255/projects/iclr_nas_embedding/nas_search
+cd /home/ya255/projects/flan_hardware/correlation_trainer
 
 $command
 EOL

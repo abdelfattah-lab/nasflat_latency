@@ -47,27 +47,45 @@ class NodeFeatureNN(nn.Module):
         return out_reshaped
 
 class EnsembleGATDGFLayer(nn.Module):
-    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale):
+    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale, ensemble_fuse_method):
         super(EnsembleGATDGFLayer, self).__init__()
-        
+        self.ensemble_fuse_method = ensemble_fuse_method
+        ensemble_conversion_dims = [64, 64]
+        self.ensemble_conversion_dims = ensemble_conversion_dims
         # Instantiate both modules
         self.dense_graph_flow = DenseGraphFlow(in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale)
         self.graph_attention_layer = GraphAttentionLayer(in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale)
+        
+        if ensemble_fuse_method == "mlp":
+            self.ensemble_conversion_list = []
+            dim = self.gcn_out_dims[-1]
+            num_fb_layers = len(self.ensemble_conversion_dims)
+            for i_dim, ensemble_conversion_dim in enumerate(ensemble_conversion_dims):
+                self.ensemble_conversion_list.append(nn.Linear(dim, ensemble_conversion_dims))
+                if i_dim < num_fb_layers - 1:
+                    self.ensemble_conversion_list.append(nn.ReLU(inplace=False))
+                dim = ensemble_conversion_dim
+            self.ensemble_conversion = nn.Sequential(*self.ensemble_conversion_list)
 
     def forward(self, inputs, adj, op_emb):
         # Get outputs from both modules
         dense_output = self.dense_graph_flow(inputs, adj, op_emb)
         gat_output = self.graph_attention_layer(inputs, adj, op_emb)
         
-        # Average the outputs
-        ensemble_output = (dense_output + gat_output) / 2
-        
+        if self.ensemble_fuse_method == 'add':
+            # Average the outputs
+            ensemble_output = (dense_output + gat_output) / 2   
+        else:
+            # Concatenate the outputs
+            ensemble_output = torch.cat((dense_output, gat_output), dim=-1)
+            # Apply a fully connected layer
+            ensemble_output = self.ensemble_conversion(ensemble_output)
         return ensemble_output
 
 # DenseGraphFlow = SGConv
 class DenseGraphFlow(nn.Module):
 
-    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale):
+    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale, ensemble_fuse_method):
         super(DenseGraphFlow, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -106,7 +124,7 @@ class DenseGraphFlow(nn.Module):
     
 
 class GraphAttentionLayer(nn.Module):
-    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale):
+    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale, ensemble_fuse_method):
         super(GraphAttentionLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -195,12 +213,14 @@ class GIN_Model(nn.Module):
             nn_emb_dims = 128,
             input_zcp = False,
             zcp_embedder_dims = [128, 128],
+            ensemble_fuse_method = "add",
             gtype = 'dense',
             residual = True,
             unique_attention_projection = False,
             opattention = True,
             leakyrelu = True,
             attention_rescale = False,
+            back_opemb_only = False,
     ):
         super(GIN_Model, self).__init__()
         # if num_time_steps > 1:
@@ -212,6 +232,7 @@ class GIN_Model(nn.Module):
         self.dual_gcn = dual_gcn
         self.num_zcps = num_zcps
         self.op_embedding_dim = op_embedding_dim
+        self.back_opemb_only = back_opemb_only
         self.node_embedding_dim = node_embedding_dim
         self.zcp_embedding_dim = zcp_embedding_dim
         self.hid_dim = hid_dim
@@ -222,6 +243,7 @@ class GIN_Model(nn.Module):
         self.back_opemb = back_opemb
         self.back_y_info = back_y_info
         self.backward_gcn_out_dims = backward_gcn_out_dims
+        self.ensemble_fuse_method = ensemble_fuse_method
         self.updateopemb_dims = updateopemb_dims
         self.updateopemb_scale = updateopemb_scale
         self.mlp_dims = mlp_dims
@@ -303,7 +325,7 @@ class GIN_Model(nn.Module):
         for dim in self.gcn_out_dims:
             self.gcns.append(
                 LayerType(
-                    in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale
+                    in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
                       # potential issue
                 )
             )
@@ -333,7 +355,7 @@ class GIN_Model(nn.Module):
         for dim in self.backward_gcn_out_dims:
             self.b_gcns.append(
                 BackLayerType(
-                    in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale
+                    in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
                 )
             )
             in_dim = dim
@@ -367,6 +389,8 @@ class GIN_Model(nn.Module):
             in_dim += self.replace_bgcn_mlp_dims[-1]
         else:
             in_dim += self.backward_gcn_out_dims[-1]
+        if self.back_opemb_only:
+            in_dim = self.op_embedding_dim
         # if self.back_mlp:
         #     in_dim = self.gcn_out_dims[-1] + self.replace_bgcn_mlp_dims[-1] + self.op_embedding_dim 
         # else:
@@ -492,55 +516,61 @@ class GIN_Model(nn.Module):
     # If activating, define updateop_embedder
         # --- UpdateOpEmb ---
         if self.back_mlp:
-            if self.back_opemb and self.back_y_info:
-                in_embedding = torch.cat(
-                    (
-                        op_emb.detach(),
-                        y.detach(),
-                        b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-                    ),
-                    dim = -1)
-            elif self.back_opemb==False and self.back_y_info:
-                in_embedding = torch.cat(
-                    (
-                        y.detach(),
-                        b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-                    ),
-                    dim = -1)
-            elif self.back_opemb and self.back_y_info==False:
-                in_embedding = torch.cat(
-                    (
-                        op_emb.detach(),
-                        b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-                    ),
-                    dim = -1)
+            if self.back_opemb_only:
+                in_embedding = op_emb
             else:
-                in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                if self.back_opemb and self.back_y_info:
+                    in_embedding = torch.cat(
+                        (
+                            op_emb.detach(),
+                            y.detach(),
+                            b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                        ),
+                        dim = -1)
+                elif self.back_opemb==False and self.back_y_info:
+                    in_embedding = torch.cat(
+                        (
+                            y.detach(),
+                            b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                        ),
+                        dim = -1)
+                elif self.back_opemb and self.back_y_info==False:
+                    in_embedding = torch.cat(
+                        (
+                            op_emb.detach(),
+                            b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+                        ),
+                        dim = -1)
+                else:
+                    in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
         else:
-            if self.back_opemb and self.back_y_info:
-                in_embedding = torch.cat(
-                    (
-                        op_emb.detach(),
-                        y.detach(),
-                        b_y
-                    ),
-                    dim = -1)
-            elif self.back_opemb==False and self.back_y_info:
-                in_embedding = torch.cat(
-                    (
-                        y.detach(),
-                        b_y
-                    ),
-                    dim = -1)
-            elif self.back_opemb and self.back_y_info==False:
-                in_embedding = torch.cat(
-                    (
-                        op_emb.detach(),
-                        b_y
-                    ),
-                    dim = -1)
+            if self.back_opemb_only:
+                in_embedding = op_emb
             else:
-                in_embedding = b_y
+                if self.back_opemb and self.back_y_info:
+                    in_embedding = torch.cat(
+                        (
+                            op_emb.detach(),
+                            y.detach(),
+                            b_y
+                        ),
+                        dim = -1)
+                elif self.back_opemb==False and self.back_y_info:
+                    in_embedding = torch.cat(
+                        (
+                            y.detach(),
+                            b_y
+                        ),
+                        dim = -1)
+                elif self.back_opemb and self.back_y_info==False:
+                    in_embedding = torch.cat(
+                        (
+                            op_emb.detach(),
+                            b_y
+                        ),
+                        dim = -1)
+                else:
+                    in_embedding = b_y
         update = self.updateop_embedder(in_embedding)
         op_emb = op_emb + self.updateopemb_scale * update
         return op_emb

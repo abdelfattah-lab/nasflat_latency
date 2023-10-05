@@ -1,1 +1,1 @@
-export PROJ_BPATH="/home/ya255/projects/iclr_nas_embedding"
+export PROJ_BPATH="/home/ya255/projects/flan_hardware"
