@@ -3,7 +3,7 @@ BASE_PATH = os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite/embedding_data
 from scipy.stats import spearmanr, kendalltau
 import torch
 from torch.utils.data import DataLoader
-from models_abl import GIN_Model, FullyConnectedNN
+from models_abl_p2 import GIN_Model, FullyConnectedNN
 import argparse, sys, time, random, os
 import numpy as np
 from pprint import pprint
