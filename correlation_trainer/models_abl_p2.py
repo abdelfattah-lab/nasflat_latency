@@ -189,7 +189,6 @@ class GIN_Model(nn.Module):
             self,
             device='cpu',
             back_dense=False,
-            dual_input = False,
             dual_gcn = False,
             num_zcps = 13,
             vertices = 7,
@@ -220,6 +219,7 @@ class GIN_Model(nn.Module):
             unique_attention_projection = False,
             opattention = True,
             leakyrelu = True,
+            bmlp_ally = False,
             randopupdate = False,
             opemb_direct = False,
             detach_mode = 'default',
@@ -234,17 +234,20 @@ class GIN_Model(nn.Module):
         1. We DO NOT use op_emb = op_emb + scale * update, we simply set op_emb = update
         2. We maintain the 'backward MLP', NOT 'backward GCN'
         3. We maintain the 'Op Update' MLP, and DO NOT detach anything
+        4. Fix time-step to 2, to indicate an 'unrolled' computation. Less messy.
         """
         self.device = device
-        self.dual_input = dual_input
+        # self.dual_input = dual_input
         self.wd_repr_dims = 8
         self.dinp = 2
         self.dual_gcn = dual_gcn
+        self.dual_input = dual_gcn
         self.unroll_fgcn = unroll_fgcn
         self.num_zcps = num_zcps
         self.randopupdate = randopupdate
         self.op_embedding_dim = op_embedding_dim
         self.back_opemb_only = back_opemb_only
+        self.bmlp_ally = bmlp_ally
         self.detach_mode = detach_mode
         self.node_embedding_dim = node_embedding_dim
         self.zcp_embedding_dim = zcp_embedding_dim
@@ -383,7 +386,16 @@ class GIN_Model(nn.Module):
 
         # replace_bgcn_mlp_dims
         if self.back_mlp: # Generate a simple FullyConnectedNN with the replace_bgcn_mlp_dims
-            self.replace_bgcn_mlp = FullyConnectedNN([self.fb_conversion_dims[-1]] + self.replace_bgcn_mlp_dims)
+            # self.replace_bgcn_mlp = FullyConnectedNN([self.fb_conversion_dims[-1]] + self.replace_bgcn_mlp_dims)
+            self.replace_bgcn_mlp = []
+            in_dim = self.fb_conversion_dims[-1]
+            num_layers = len(self.replace_bgcn_mlp_dims)
+            for i_dim, mlp_dim in enumerate(self.replace_bgcn_mlp_dims):
+                self.replace_bgcn_mlp.append(nn.Linear(in_dim, mlp_dim))
+                if i_dim < num_layers - 1:
+                    self.replace_bgcn_mlp.append(nn.ReLU(inplace=False))
+                in_dim = mlp_dim
+            self.replace_bgcn_mlp = nn.Sequential(*self.replace_bgcn_mlp)
 
         # fb_conversion
         if self.num_time_steps > 1:
@@ -400,14 +412,14 @@ class GIN_Model(nn.Module):
         # updateop_embedder
         self.updateop_embedder = []
         in_dim = 0
-        if self.back_opemb:
-            in_dim += self.op_embedding_dim
-        if self.back_y_info:
-            in_dim += self.gcn_out_dims[-1]
-        if self.back_mlp:
-            in_dim += self.replace_bgcn_mlp_dims[-1]
-        else:
-            in_dim += self.backward_gcn_out_dims[-1]
+        # if self.back_opemb:
+        in_dim += self.op_embedding_dim
+        # if self.back_y_info:
+        # in_dim += self.gcn_out_dims[-1]
+        # if self.back_mlp:
+        in_dim += self.replace_bgcn_mlp_dims[-1]
+        # else:
+            # in_dim += self.backward_gcn_out_dims[-1]
         if self.back_opemb_only:
             in_dim = self.op_embedding_dim
         # if self.back_mlp:
@@ -453,7 +465,7 @@ class GIN_Model(nn.Module):
         return torch.cat(base, dim=1)
 
     def _concat_node_embs(self, b_size, dual=False):
-        vertices = self.vertices - (1 if dual else 2)
+        vertices = self.vertices - (2 if dual else 1)
         base = [
             self.input_node_emb.weight.unsqueeze(0).repeat([b_size, 1, 1]),
             self.other_node_emb.unsqueeze(0).repeat([b_size, vertices, 1])
@@ -493,7 +505,6 @@ class GIN_Model(nn.Module):
         return adjs, x, op_embs, op_inds
 
     def _forward_pass(self, x, adjs, auged_op_emb):
-        # --- forward pass ---
         y = x
         for i_layer, gcn in enumerate(self.gcns):
             y = gcn(y, adjs, auged_op_emb)
@@ -501,29 +512,7 @@ class GIN_Model(nn.Module):
                 y = F.relu(y)
             y = F.dropout(y, self.dropout, training = self.training)
         return y
-
-    def _backward_pass(self, y, adjs, auged_op_emb):
-    # If activating, define b_gcns, fb_conversion
-        # --- backward pass ---
-        b_info = y[:, -1:, :].squeeze()
-        b_y = self.replace_bgcn_mlp(b_info)
-        return b_y
-
-    def _update_op_emb(self, y, b_y, op_emb):
-        if self.back_opemb_only:
-            in_embedding = op_emb
-        else:
-            if self.back_opemb and self.back_y_info:
-                in_embedding = torch.cat((op_emb, y, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
-            elif self.back_opemb==False and self.back_y_info:
-                in_embedding = torch.cat((y, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
-            elif self.back_opemb and self.back_y_info==False:
-                in_embedding = torch.cat((op_emb, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
-            else:
-                in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-        op_emb = self.updateop_embedder(in_embedding)
-        return op_emb
-
+    
     def _final_process(self, y, op_inds):
         if self.dual_input:
             y = y[:, self.dinp:, :]
@@ -536,11 +525,17 @@ class GIN_Model(nn.Module):
         return y
 
     def _process_architecture(self, x, adjs, op_emb, op_inds):
-        for tst in range(self.num_time_steps):
-            y = self._forward_pass(x, adjs, op_emb)
-            if tst < self.num_time_steps - 1:
-                b_y = self._backward_pass(y, adjs, op_emb)
-                op_emb = self._update_op_emb(y, b_y, op_emb)
+        y = self._forward_pass(x, adjs, op_emb)
+        # Test 1. 
+        #     y[:, -1:, :] OR y[:, :, :] --> Tested by bmlp_ally
+        if self.bmlp_ally:
+            jlz = self.replace_bgcn_mlp(y)
+        else:
+            jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
+        in_embedding = torch.cat((op_emb, jlz), dim=-1)
+        op_emb = self.updateop_embedder(in_embedding)
+        # import pdb; pdb.set_trace()
+        y = self._forward_pass(x, adjs, op_emb)
         return self._final_process(y, op_inds)
 
     def _concat_embedded_input(self, main_tensor, input_tensor, embedder):
@@ -565,3 +560,22 @@ class GIN_Model(nn.Module):
             y_1 = self._concat_embedded_input(y_1, norm_w_d, self.norm_wd_embedder)
         
         return self.mlp(y_1)
+
+
+################################################################################################################################################################################################
+
+    # def _update_op_emb(self, y, b_y, op_emb):
+    #     # Research here
+    #     if self.back_opemb_only:
+    #         in_embedding = op_emb
+    #     else:
+    #         if self.back_opemb and self.back_y_info:
+    #             in_embedding = torch.cat((op_emb, y, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
+    #         elif self.back_opemb==False and self.back_y_info:
+    #             in_embedding = torch.cat((y, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
+    #         elif self.back_opemb and self.back_y_info==False:
+    #             in_embedding = torch.cat((op_emb, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
+    #         else:
+    #             in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
+    #     op_emb = self.updateop_embedder(in_embedding)
+    #     return op_emb
