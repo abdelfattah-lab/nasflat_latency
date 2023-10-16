@@ -28,20 +28,20 @@ parser.add_argument('--loss_type', type=str, default='pwl')        # mse, pwl su
 parser.add_argument('--gnn_type', type=str, default='dense')       # dense, gat, gat_mh supported
 parser.add_argument('--back_dense', action="store_true")           # If True, backward flow will be DenseFlow
 parser.add_argument('--num_trials', type=int, default=3)
-parser.add_argument('--no_residual', action="store_true")
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
-parser.add_argument('--back_mlp', action="store_true")              # True for best result
-parser.add_argument('--back_opemb', action="store_true")            # True for best result
-parser.add_argument('--randopupdate', action="store_true")          # False for best result
-parser.add_argument('--back_opemb_only', action="store_true")       # False for best result
-parser.add_argument('--opemb_direct', action="store_true")          # True for best result (5/8 improvement)
-parser.add_argument('--bmlp_ally', action="store_true")             # Need to test
-parser.add_argument('--unroll_fgcn', action="store_true")           # Did not help
-parser.add_argument('--back_y_info', action="store_true")           # False for best result
-parser.add_argument('--ensemble_fuse_method', type=str, default='add')   # add, mlp (Need to test)
-parser.add_argument('--detach_mode', type=str, default='default')        # How to detach before update operation embedding (default or detach_none best)
+parser.add_argument('--no_residual', action="store_true")                                                    # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_mlp', action="store_true")              # True for best result                   # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_opemb', action="store_true")            # True for best result                   # <DEPRECATED, HARDCODED>
+parser.add_argument('--randopupdate', action="store_true")          # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_opemb_only', action="store_true")       # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--opemb_direct', action="store_true")          # True for best result (5/8 improvement) # <DEPRECATED, HARDCODED>
+parser.add_argument('--bmlp_ally', action="store_true")             # 27 False, 13 True (False best result)  # <DEPRECATED, HARDCODED>
+parser.add_argument('--unroll_fgcn', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_y_info', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--ensemble_fuse_method', type=str, default='add')   # add, mlp (Need to test)           # <DEPRECATED, HARDCODED>
+parser.add_argument('--detach_mode', type=str, default='default')   # default for best result, using none    # <DEPRECATED, HARDCODED>
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--no_leakyrelu', action="store_true")
 parser.add_argument('--no_unique_attention_projection', action="store_true")

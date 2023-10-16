@@ -371,31 +371,15 @@ class GIN_Model(nn.Module):
         self.zcp_embedder.append(nn.Linear(zin_dim, self.zcp_embedding_dim))
         self.zcp_embedder = nn.Sequential(*self.zcp_embedder)
 
-        # backward gcn
-        self.b_gcns = []
+        self.replace_bgcn_mlp = []
         in_dim = self.fb_conversion_dims[-1]
-        for dim in self.backward_gcn_out_dims:
-            self.b_gcns.append(
-                BackLayerType(
-                    in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
-                )
-            )
-            in_dim = dim
-        self.b_gcns = nn.ModuleList(self.b_gcns)
-        self.num_b_gcn_layers = len(self.b_gcns)
-
-        # replace_bgcn_mlp_dims
-        if self.back_mlp: # Generate a simple FullyConnectedNN with the replace_bgcn_mlp_dims
-            # self.replace_bgcn_mlp = FullyConnectedNN([self.fb_conversion_dims[-1]] + self.replace_bgcn_mlp_dims)
-            self.replace_bgcn_mlp = []
-            in_dim = self.fb_conversion_dims[-1]
-            num_layers = len(self.replace_bgcn_mlp_dims)
-            for i_dim, mlp_dim in enumerate(self.replace_bgcn_mlp_dims):
-                self.replace_bgcn_mlp.append(nn.Linear(in_dim, mlp_dim))
-                if i_dim < num_layers - 1:
-                    self.replace_bgcn_mlp.append(nn.ReLU(inplace=False))
-                in_dim = mlp_dim
-            self.replace_bgcn_mlp = nn.Sequential(*self.replace_bgcn_mlp)
+        num_layers = len(self.replace_bgcn_mlp_dims)
+        for i_dim, mlp_dim in enumerate(self.replace_bgcn_mlp_dims):
+            self.replace_bgcn_mlp.append(nn.Linear(in_dim, mlp_dim))
+            if i_dim < num_layers - 1:
+                self.replace_bgcn_mlp.append(nn.ReLU(inplace=False))
+            in_dim = mlp_dim
+        self.replace_bgcn_mlp = nn.Sequential(*self.replace_bgcn_mlp)
 
         # fb_conversion
         if self.num_time_steps > 1:
@@ -412,20 +396,10 @@ class GIN_Model(nn.Module):
         # updateop_embedder
         self.updateop_embedder = []
         in_dim = 0
-        # if self.back_opemb:
         in_dim += self.op_embedding_dim
-        # if self.back_y_info:
-        # in_dim += self.gcn_out_dims[-1]
-        # if self.back_mlp:
         in_dim += self.replace_bgcn_mlp_dims[-1]
-        # else:
-            # in_dim += self.backward_gcn_out_dims[-1]
         if self.back_opemb_only:
             in_dim = self.op_embedding_dim
-        # if self.back_mlp:
-        #     in_dim = self.gcn_out_dims[-1] + self.replace_bgcn_mlp_dims[-1] + self.op_embedding_dim 
-        # else:
-        #     in_dim = self.gcn_out_dims[-1] + self.backward_gcn_out_dims[-1] + self.op_embedding_dim
         for embedder_dim in self.updateopemb_dims:
             self.updateop_embedder.append(nn.Linear(in_dim, embedder_dim))
             self.updateop_embedder.append(nn.ReLU(inplace = False))
@@ -526,22 +500,24 @@ class GIN_Model(nn.Module):
 
     def _process_architecture(self, x, adjs, op_emb, op_inds):
         y = self._forward_pass(x, adjs, op_emb)
-        # Test 1. 
-        #     y[:, -1:, :] OR y[:, :, :] --> Tested by bmlp_ally
-        if self.bmlp_ally:
-            jlz = self.replace_bgcn_mlp(y)
+        # Here, we use the last node output and the embedding itself, to re-represent the embedding.
+        # and then do another forward pass with the new embedding.
+        # this is essentially doing a double forward pass? 
+        # Can we create a 'new' forward net, which is separate from the main forward net, just to process the opemb?
+        if self.separate_fp:
+            op_emb = self._forward_op_pass(x, adj, op_emb)
+            y = self._forward_pass(x, adjs, op_emb)
+            return self._final_process(y, op_inds)
         else:
             jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
-        in_embedding = torch.cat((op_emb, jlz), dim=-1)
-        op_emb = self.updateop_embedder(in_embedding)
-        # import pdb; pdb.set_trace()
-        y = self._forward_pass(x, adjs, op_emb)
-        return self._final_process(y, op_inds)
+            in_embedding = torch.cat((op_emb, jlz), dim=-1)
+            op_emb = self.updateop_embedder(in_embedding)
+            y = self._forward_pass(x, adjs, op_emb)
+            return self._final_process(y, op_inds)
 
     def _concat_embedded_input(self, main_tensor, input_tensor, embedder):
         input_tensor = embedder(input_tensor.to(self.device))
-        input_tensor = self._ensure_2d(input_tensor)
-        main_tensor = self._ensure_2d(main_tensor)
+        input_tensor, main_tensor = self._ensure_2d(input_tensor), self._ensure_2d(main_tensor)
         return torch.cat((main_tensor, input_tensor), dim=-1)
 
     def forward(self, x_ops_1=None, x_adj_1=None, x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=None):
@@ -560,22 +536,3 @@ class GIN_Model(nn.Module):
             y_1 = self._concat_embedded_input(y_1, norm_w_d, self.norm_wd_embedder)
         
         return self.mlp(y_1)
-
-
-################################################################################################################################################################################################
-
-    # def _update_op_emb(self, y, b_y, op_emb):
-    #     # Research here
-    #     if self.back_opemb_only:
-    #         in_embedding = op_emb
-    #     else:
-    #         if self.back_opemb and self.back_y_info:
-    #             in_embedding = torch.cat((op_emb, y, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
-    #         elif self.back_opemb==False and self.back_y_info:
-    #             in_embedding = torch.cat((y, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
-    #         elif self.back_opemb and self.back_y_info==False:
-    #             in_embedding = torch.cat((op_emb, b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)), dim = -1)
-    #         else:
-    #             in_embedding = b_y.unsqueeze(dim=1).repeat(1, y.shape[1], 1)
-    #     op_emb = self.updateop_embedder(in_embedding)
-    #     return op_emb
