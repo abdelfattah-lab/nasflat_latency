@@ -31,6 +31,7 @@ parser.add_argument('--num_trials', type=int, default=3)
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
+parser.add_argument('--separate_op_fp', action="store_true")        # create separate fp for opemb           # <TEST NOW>
 parser.add_argument('--no_residual', action="store_true")                                                    # <DEPRECATED, HARDCODED>
 parser.add_argument('--back_mlp', action="store_true")              # True for best result                   # <DEPRECATED, HARDCODED>
 parser.add_argument('--back_opemb', action="store_true")            # True for best result                   # <DEPRECATED, HARDCODED>
@@ -405,6 +406,7 @@ for tr_ in range(args.num_trials):
                                 bmlp_ally = args.bmlp_ally,
                                 replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
                                 residual=args.residual,
+                                separate_op_fp = args.separate_op_fp,
                                 unroll_fgcn = args.unroll_fgcn,
                                 detach_mode = args.detach_mode,
                                 back_mlp = args.back_mlp,
@@ -428,6 +430,7 @@ for tr_ in range(args.num_trials):
                                 none_op_ind = none_op_ind,
                                 unroll_fgcn = args.unroll_fgcn,
                                 input_zcp = False,
+                                separate_op_fp = args.separate_op_fp,
                                 gcn_out_dims = args.forward_gcn_out_dims,
                                 backward_gcn_out_dims = args.backward_gcn_out_dims,
                                 bmlp_ally = args.bmlp_ally,
@@ -457,6 +460,7 @@ for tr_ in range(args.num_trials):
                                 dual_gcn = False,
                                 num_time_steps = args.timesteps,
                                 num_zcps = num_zcps,
+                                separate_op_fp = args.separate_op_fp,
                                 unroll_fgcn = args.unroll_fgcn,
                                 vertices = input_dim,
                                 none_op_ind = none_op_ind,
@@ -488,6 +492,7 @@ for tr_ in range(args.num_trials):
                                 num_zcps = num_zcps,
                                 vertices = input_dim,
                                 none_op_ind = none_op_ind,
+                                separate_op_fp = args.separate_op_fp,
                                 detach_mode = args.detach_mode,
                                 input_zcp = True,
                                 gcn_out_dims = args.forward_gcn_out_dims,
@@ -571,14 +576,14 @@ filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 # parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128, 128, 128])
 # parser.add_argument('--back_mlp', action="store_true")
 # parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
-header = "name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,detach_mode,opemb_direct,unroll_fgcn,bmlp_ally,spr,kdt,spr_std,kdt_std"
+header = "name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,detach_mode,opemb_direct,unroll_fgcn,bmlp_ally,separate_op_fp,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
 
 with open(filename, 'a') as f:
     for key in samp_eff.keys():
-        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
+        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
                 (
                     str(args.name_desc),
                     str(args.seed),
@@ -612,6 +617,7 @@ with open(filename, 'a') as f:
                     str(args.opemb_direct),
                     str(args.unroll_fgcn),
                     str(args.bmlp_ally),
+                    str(args.separate_op_fp),
                     str(record_[key][2]),
                     str(record_[key][0]),
                     str(record_[key][3]),

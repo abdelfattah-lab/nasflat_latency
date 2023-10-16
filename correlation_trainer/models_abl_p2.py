@@ -224,6 +224,7 @@ class GIN_Model(nn.Module):
             opemb_direct = False,
             detach_mode = 'default',
             attention_rescale = False,
+            separate_op_fp = False,
             back_opemb_only = False,
     ):
         super(GIN_Model, self).__init__()
@@ -243,6 +244,7 @@ class GIN_Model(nn.Module):
         self.dual_gcn = dual_gcn
         self.dual_input = dual_gcn
         self.unroll_fgcn = unroll_fgcn
+        self.separate_op_fp = separate_op_fp
         self.num_zcps = num_zcps
         self.randopupdate = randopupdate
         self.op_embedding_dim = op_embedding_dim
@@ -290,22 +292,14 @@ class GIN_Model(nn.Module):
         
         if self.gtype == 'dense':
             LayerType = DenseGraphFlow
-            BackLayerType = DenseGraphFlow
         elif self.gtype == 'gat':
             LayerType = GraphAttentionLayer
-            BackLayerType = GraphAttentionLayer
         elif self.gtype == 'gat_mh':
             LayerType = MultiHeadGraphAttentionLayer
-            BackLayerType = MultiHeadGraphAttentionLayer
         elif self.gtype == 'ensemble':
             LayerType = EnsembleGATDGFLayer
-            BackLayerType = EnsembleGATDGFLayer
         else:
             raise NotImplementedError
-
-        if self.back_dense:
-            BackLayerType = DenseGraphFlow
-
         # regression MLP
         self.mlp = []
         reg_inp_dims = self.gcn_out_dims[-1]
@@ -334,16 +328,10 @@ class GIN_Model(nn.Module):
         )
         self.op_emb = nn.Embedding(128, self.op_embedding_dim)
         self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
-        if self.unroll_fgcn:
-            self.x_hidden = nn.Linear(self.node_embedding_dim, self.gcn_out_dims[0])
-        else:
-            self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
+        self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
         # gcn
         self.gcns = []
-        if self.unroll_fgcn:
-            in_dim = self.gcn_out_dims[0]
-        else:
-            in_dim = self.hid_dim
+        in_dim = self.hid_dim
         for dim in self.gcn_out_dims:
             self.gcns.append(
                 LayerType(
@@ -355,6 +343,22 @@ class GIN_Model(nn.Module):
         self.gcns = nn.ModuleList(self.gcns)
         self.num_gcn_layers = len(self.gcns)
         self.out_dim = in_dim
+        if self.separate_op_fp:
+            # separate operator forward pass for update
+            self.op_f_gcns = []
+            in_dim = self.hid_dim
+            for dim in self.gcn_out_dims:
+                self.op_f_gcns.append(
+                    LayerType(
+                        in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
+                        # potential issue
+                    )
+                )
+                in_dim = dim
+            self.op_f_gcns = nn.ModuleList(self.op_f_gcns)
+            self.num_gcn_layers = len(self.op_f_gcns)
+            self.out_dim = in_dim
+
 
         # zcp
         self.zcp_embedder = []
@@ -486,6 +490,17 @@ class GIN_Model(nn.Module):
                 y = F.relu(y)
             y = F.dropout(y, self.dropout, training = self.training)
         return y
+        
+    def _forward_op_pass(self, x, adjs, auged_op_emb):
+        y = x
+        for i_layer, gcn in enumerate(self.op_f_gcns):
+            y = gcn(y, adjs, auged_op_emb)
+            if i_layer != self.num_gcn_layers - 1:
+                y = F.relu(y)
+            y = F.dropout(y, self.dropout, training = self.training)
+        jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
+        in_embedding = torch.cat((auged_op_emb, jlz), dim=-1)
+        return in_embedding
     
     def _final_process(self, y, op_inds):
         if self.dual_input:
@@ -499,16 +514,17 @@ class GIN_Model(nn.Module):
         return y
 
     def _process_architecture(self, x, adjs, op_emb, op_inds):
-        y = self._forward_pass(x, adjs, op_emb)
         # Here, we use the last node output and the embedding itself, to re-represent the embedding.
         # and then do another forward pass with the new embedding.
         # this is essentially doing a double forward pass? 
         # Can we create a 'new' forward net, which is separate from the main forward net, just to process the opemb?
-        if self.separate_fp:
-            op_emb = self._forward_op_pass(x, adj, op_emb)
+        if self.separate_op_fp:
+            op_emb = self._forward_op_pass(x, adjs, op_emb) # Use a separate network? 
+            op_emb = self.updateop_embedder(op_emb)
             y = self._forward_pass(x, adjs, op_emb)
             return self._final_process(y, op_inds)
         else:
+            y = self._forward_pass(x, adjs, op_emb)
             jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
             in_embedding = torch.cat((op_emb, jlz), dim=-1)
             op_emb = self.updateop_embedder(in_embedding)
