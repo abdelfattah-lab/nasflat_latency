@@ -198,6 +198,7 @@ class GIN_Model(nn.Module):
             zcp_embedding_dim = 48,
             hid_dim = 96,
             gcn_out_dims = [128, 128, 128, 128, 128],
+            op_fp_gcn_out_dims = [128, 128],
             mlp_dims = [200, 200, 200],
             dropout = 0.0,
             num_time_steps = 1,
@@ -242,6 +243,7 @@ class GIN_Model(nn.Module):
         self.wd_repr_dims = 8
         self.dinp = 2
         self.dual_gcn = dual_gcn
+        self.op_fp_gcn_out_dims = op_fp_gcn_out_dims
         self.dual_input = dual_gcn
         self.unroll_fgcn = unroll_fgcn
         self.separate_op_fp = separate_op_fp
@@ -343,11 +345,12 @@ class GIN_Model(nn.Module):
         self.gcns = nn.ModuleList(self.gcns)
         self.num_gcn_layers = len(self.gcns)
         self.out_dim = in_dim
+
         if self.separate_op_fp:
             # separate operator forward pass for update
             self.op_f_gcns = []
             in_dim = self.hid_dim
-            for dim in self.gcn_out_dims:
+            for dim in self.op_fp_gcn_out_dims:
                 self.op_f_gcns.append(
                     LayerType(
                         in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
@@ -356,9 +359,7 @@ class GIN_Model(nn.Module):
                 )
                 in_dim = dim
             self.op_f_gcns = nn.ModuleList(self.op_f_gcns)
-            self.num_gcn_layers = len(self.op_f_gcns)
-            self.out_dim = in_dim
-
+            self.num_op_fp_gcn_layers = len(self.op_f_gcns)
 
         # zcp
         self.zcp_embedder = []
@@ -495,7 +496,7 @@ class GIN_Model(nn.Module):
         y = x
         for i_layer, gcn in enumerate(self.op_f_gcns):
             y = gcn(y, adjs, auged_op_emb)
-            if i_layer != self.num_gcn_layers - 1:
+            if i_layer != self.num_op_fp_gcn_layers - 1:
                 y = F.relu(y)
             y = F.dropout(y, self.dropout, training = self.training)
         jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))

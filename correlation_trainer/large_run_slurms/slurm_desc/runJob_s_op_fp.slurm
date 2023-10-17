@@ -16,4 +16,4 @@ conda activate unr
 
 cd /home/ya255/projects/flan_hardware/correlation_trainer
 
-python main_abl.py --seed 42 --name_desc seperate_op_fp --sample_sizes 8 16 32 64 128 --batch_size 8 --space nb101 --representation adj_gin --gnn_type dense --forward_gcn_out_dims 128 128 128 --backward_gcn_out_dims 128 128 128 --replace_bgcn_mlp_dims 128 128 128 --num_trials 3 --separate_op_fp
+python main_abl.py --seed 42 --name_desc separate_op_fp_2 --sample_sizes 8 16 32 64 128 --op_fp_gcn_out_dims 64 128 --batch_size 8 --space nb201 --representation adj_gin --gnn_type dense --forward_gcn_out_dims 128 128 128 --backward_gcn_out_dims 128 128 128 --replace_bgcn_mlp_dims 128 128 --num_trials 3 --separate_op_fp

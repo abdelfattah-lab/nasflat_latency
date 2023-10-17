@@ -88,7 +88,21 @@ class NASBench201:
             with open(NASBench201.CACHE_FILE_PATH, 'wb') as cache_file:
                 pickle.dump(self.cache, cache_file)
             self.cready = True
-            
+        
+        latency_data = {}
+        devices = ['1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
+                   'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
+                   'fpga', 'gold_6226', 'gold_6240', 'mobile_cpu_snapdragon_450_cortex_a53_int8', 'mobile_cpu_snapdragon_675_kryo_460_int8', 'mobile_cpu_snapdragon_855_kryo_485_int8', \
+                   'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_450_adreno_506_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', \
+                   'mobile_gpu_snapdragon_855_adreno_640_int8', 'nwot_nb201_cifar10', 'params_nb201_cifar10', 'pixel2', 'pixel3', 'raspi4', 'samsung_a50', 'samsung_s7', 'silver_4114', \
+                   'silver_4210r', 'titan_rtx_1', 'titan_rtx_256', 'titan_rtx_32', 'titanx_1', 'titanx_256', 'titanx_32', 'titanxp_1', 'titanxp_256', 'titanxp_32']
+        for dev_ in devices:
+            latency_data[dev_] = torch.load(BASE_PATH + "/nb201_latency/" + dev_ + ".pt")
+        
+        # Normalize each key in latency_data
+        for k, v in latency_data.items():
+            latency_data[k] = self.min_max_scaling(np.asarray(v)).tolist()
+
         self.zready = False
         self.zcp_cache = {}
         
@@ -217,6 +231,9 @@ class NASBench201:
                                                         is_random=False)['valid-accuracy'] 
                 val_acc = acc_results / 100.
             return val_acc
+        
+    def get_latency(self, idx, space=None, device="1080ti_1"):
+        return latency_data[device][idx]
 
     def get_arch2vec(self, idx, joint=None, space=None):
         return self.arch2vec_nb201[idx]['feature'].tolist()
