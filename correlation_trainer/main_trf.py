@@ -20,7 +20,7 @@ sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
 
 parser = argparse.ArgumentParser()
 ####################################################### Search Space Choices #######################################################
-parser.add_argument('--space', type=str, default='Amoeba')         # nb101, nb201, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
+parser.add_argument('--space', type=str, default='nb201')         # nb101, nb201, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
 parser.add_argument('--source_devices', nargs='+', type=str, default=['1080ti_1','1080ti_32','1080ti_256','silver_4114','silver_4210r','samsung_a50','pixel3','essential_ph_1','samsung_s7'])
     # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
     #    'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
@@ -51,6 +51,8 @@ parser.add_argument('--task', type=str, default='class_scene')     # all tb101 t
 parser.add_argument('--representation', type=str, default='cate')  # adj_mlp, adj_gin, zcp (except nb301), cate, arch2vec, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate supported. # adj_gin_org
 parser.add_argument('--loss_type', type=str, default='pwl')        # mse, pwl supported
 parser.add_argument('--gnn_type', type=str, default='dense')       # dense, gat, gat_mh supported
+parser.add_argument('--hwemb_to_mlp', action="store_true")         # hw embedding at MLP stage if True, at per-node embedding if False (False should be better) #TODO IMPLEMENT TODAY
+parser.add_argument('--transfer_hwemb', action="store_true")       # Init emb of new HW to closest training HW if True, else use random init for HW Emb (True should be better) #TODO IMPLEMENT TODAY
 parser.add_argument('--num_trials', type=int, default=3)
 parser.add_argument('--op_fp_gcn_out_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
@@ -77,20 +79,20 @@ parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--id', type=int, default=0)
 ####################################################################################################################################
 args = parser.parse_args()
-device = args.device
+# device = args.device
 if args.representation.__contains__("adj_gin_org"):
     args.representation = args.representation.replace("adj_gin_org", "adj_gin")
     from models_abl import GIN_Model, FullyConnectedNN # Use original model with default set arguments
 else:
     from models_abl_p2 import GIN_Model, FullyConnectedNN
 
-if args.device is not None:
+if args.source_devices is not None:
     assert args.space in ["nb201"], "If device is not None, space MUST be nb201."
 
 assert args.metric_device not in args.source_devices, "Metric device cannot be in source devices."
 assert args.metric_device not in args.target_devices, "Metric device cannot be in target devices."
 
-sample_tests = {}
+sample_tests, transfer_sample_tests = {}, {}
 sample_tests[args.space] = args.sample_sizes
 transfer_sample_tests[args.space] = args.transfer_sample_sizes
 
@@ -159,38 +161,11 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
         if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
             archs_1 = [torch.stack(list((inputs[indx] for indx in ex_thresh_inds[1])))]
             archs_2 = [torch.stack(list((inputs[indx] for indx in ex_thresh_inds[0])))]
-            X_input_1 = archs_1[0].to(args.cpu_gpu_device)
+            X_input_1 = archs_1[0].to(dtype=torch.float32, device=args.cpu_gpu_device)
             s_1 = model(X_input_1).squeeze()
-            X_input_2 = archs_2[0].to(args.cpu_gpu_device)
+            X_input_2 = archs_2[0].to(dtype=torch.float32, device=args.cpu_gpu_device)
             s_2 = model(X_input_2).squeeze()
         elif args.representation in ["adj_gin"]:
-            if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
-                archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
-                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
-                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[1])))]
-                archs_2 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[0]))),
-                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[0]))),
-                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[0])))]
-                X_adj_1, X_ops_1, norm_w_d_1 = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device)
-                s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=norm_w_d_1).squeeze()
-                X_adj_2, X_ops_2, norm_w_d_2 = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device)
-                s_2 = model(x_ops_1=X_ops_2, x_adj_1=X_adj_2.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=norm_w_d_2).squeeze()
-            else:
-                archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
-                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
-                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[1]))),
-                        torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[1]))),
-                        torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[1])))]
-                archs_2 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[0]))),
-                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[0]))),
-                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[0]))),
-                        torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[0]))),
-                        torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[0])))]
-                X_adj_a_1, X_ops_a_1, X_adj_b_1, X_ops_b_1, norm_w_d_1 = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device), archs_1[4].to(args.cpu_gpu_device)
-                s_1 = model(x_ops_1=X_ops_a_1, x_adj_1=X_adj_a_1.to(torch.long), x_ops_2=X_ops_b_1, x_adj_2=X_adj_b_1.to(torch.long), zcp=None, norm_w_d=norm_w_d_1).squeeze()
-                X_adj_a_2, X_ops_a_2, X_adj_b_2, X_ops_b_2, norm_w_d_2 = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device)
-                s_2 = model(x_ops_1=X_ops_a_2, x_adj_1=X_adj_a_2.to(torch.long), x_ops_2=X_ops_b_2, x_adj_2=X_adj_b_2.to(torch.long), zcp=None, norm_w_d=norm_w_d_2).squeeze()
-        elif args.representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
             if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
                 archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
                         torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
@@ -200,10 +175,10 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
                         torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[0]))),
                         torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[0]))),
                         torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[0])))]
-                X_adj_1, X_ops_1, zcp, norm_w_d_1 = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device)
-                s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=zcp, norm_w_d=norm_w_d_1).squeeze()
-                X_adj_2, X_ops_2, zcp, norm_w_d_2 = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device)
-                s_2 = model(x_ops_1=X_ops_2, x_adj_1=X_adj_2.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=zcp, norm_w_d=norm_w_d_2).squeeze()
+                X_adj_1, X_ops_1, norm_w_d_1, hw_idx = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device)
+                s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=norm_w_d_1, hw_idx=hw_idx).squeeze()
+                X_adj_2, X_ops_2, norm_w_d_2, hw_idx = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device)
+                s_2 = model(x_ops_1=X_ops_2, x_adj_1=X_adj_2.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=norm_w_d_2, hw_idx=hw_idx).squeeze()
             else:
                 archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
                         torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
@@ -217,10 +192,45 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
                         torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[0]))),
                         torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[0]))),
                         torch.stack(list((inputs[5][indx] for indx in ex_thresh_inds[0])))]
-                X_adj_a_1, X_ops_a_1, X_adj_b_1, X_ops_b_1, zcp, norm_w_d_1 = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device), archs_1[4].to(args.cpu_gpu_device), archs_1[5].to(args.cpu_gpu_device)
-                s_1 = model(x_ops_1 = X_ops_a_1, x_adj_1 = X_adj_a_1.to(torch.long), x_ops_2 = X_ops_b_1, x_adj_2 = X_adj_b_1.to(torch.long), zcp = zcp, norm_w_d=norm_w_d_1).squeeze()
-                X_adj_a_2, X_ops_a_2, X_adj_b_2, X_ops_b_2, zcp, norm_w_d_2 = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device), archs_2[5].to(args.cpu_gpu_device)
-                s_2 = model(x_ops_1 = X_ops_a_2, x_adj_1 = X_adj_a_2.to(torch.long), x_ops_2 = X_ops_b_2, x_adj_2 = X_adj_b_2.to(torch.long), zcp = zcp, norm_w_d=norm_w_d_2).squeeze()
+                X_adj_a_1, X_ops_a_1, X_adj_b_1, X_ops_b_1, norm_w_d_1, hw_idx = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device), archs_1[4].to(args.cpu_gpu_device)
+                s_1 = model(x_ops_1=X_ops_a_1, x_adj_1=X_adj_a_1.to(torch.long), x_ops_2=X_ops_b_1, x_adj_2=X_adj_b_1.to(torch.long), zcp=None, norm_w_d=norm_w_d_1, hw_idx=hw_idx).squeeze()
+                X_adj_a_2, X_ops_a_2, X_adj_b_2, X_ops_b_2, norm_w_d_2, hw_idx = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device)
+                s_2 = model(x_ops_1=X_ops_a_2, x_adj_1=X_adj_a_2.to(torch.long), x_ops_2=X_ops_b_2, x_adj_2=X_adj_b_2.to(torch.long), zcp=None, norm_w_d=norm_w_d_2, hw_idx=hw_idx).squeeze()
+        elif args.representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
+            if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+                archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[1])))]
+                archs_2 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[0])))]
+                X_adj_1, X_ops_1, zcp, norm_w_d_1, hw_idx = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device), archs_1[4].to(args.cpu_gpu_device)
+                s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=zcp, norm_w_d=norm_w_d_1, hw_idx=hw_idx).squeeze()
+                X_adj_2, X_ops_2, zcp, norm_w_d_2, hw_idx = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device)
+                s_2 = model(x_ops_1=X_ops_2, x_adj_1=X_adj_2.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=zcp, norm_w_d=norm_w_d_2, hw_idx=hw_idx).squeeze()
+            else:
+                archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[5][indx] for indx in ex_thresh_inds[1]))),
+                        torch.stack(list((inputs[6][indx] for indx in ex_thresh_inds[1])))]
+                archs_2 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[5][indx] for indx in ex_thresh_inds[0]))),
+                        torch.stack(list((inputs[6][indx] for indx in ex_thresh_inds[0])))]
+                X_adj_a_1, X_ops_a_1, X_adj_b_1, X_ops_b_1, zcp, norm_w_d_1 = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device), archs_1[4].to(args.cpu_gpu_device), archs_1[5].to(args.cpu_gpu_device), archs_1[6].to(args.cpu_gpu_device)
+                s_1 = model(x_ops_1 = X_ops_a_1, x_adj_1 = X_adj_a_1.to(torch.long), x_ops_2 = X_ops_b_1, x_adj_2 = X_adj_b_1.to(torch.long), zcp = zcp, norm_w_d=norm_w_d_1, hw_idx=hw_idx).squeeze()
+                X_adj_a_2, X_ops_a_2, X_adj_b_2, X_ops_b_2, zcp, norm_w_d_2 = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device), archs_2[5].to(args.cpu_gpu_device), archs_2[6].to(args.cpu_gpu_device)
+                s_2 = model(x_ops_1 = X_ops_a_2, x_adj_1 = X_adj_a_2.to(torch.long), x_ops_2 = X_ops_b_2, x_adj_2 = X_adj_b_2.to(torch.long), zcp = zcp, norm_w_d=norm_w_d_2, hw_idx=hw_idx).squeeze()
         else:
             raise NotImplementedError
         better_lst = (acc_diff>0)[ex_thresh_inds]
@@ -242,17 +252,17 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
         if epoch < args.epochs - 5 and repr_idx > repr_max:
             break
         if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
-            pred_scores.append(model(reprs.to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
+            pred_scores.append(model(reprs.to(args.cpu_gpu_device, dtype=torch.float32)).squeeze().detach().cpu().tolist())
         elif args.representation in ["adj_gin"]:
             if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
-                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
+                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
             else:
-                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=reprs[3].to(args.cpu_gpu_device), x_adj_2=reprs[2].to(torch.long), zcp=None, norm_w_d=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
+                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=reprs[3].to(args.cpu_gpu_device), x_adj_2=reprs[2].to(torch.long), zcp=None, norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
         elif args.representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
             if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
-                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=None, x_adj_2=None, zcp=reprs[2].to(args.cpu_gpu_device), norm_w_d=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
+                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=None, x_adj_2=None, zcp=reprs[2].to(args.cpu_gpu_device), norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
             else:
-                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=reprs[3].to(args.cpu_gpu_device), x_adj_2=reprs[2].to(torch.long), zcp=reprs[4].to(args.cpu_gpu_device), norm_w_d=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
+                pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=reprs[3].to(args.cpu_gpu_device), x_adj_2=reprs[2].to(torch.long), zcp=reprs[4].to(args.cpu_gpu_device), norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
         else:
             raise NotImplementedError
         true_scores.append(scores.cpu().tolist())
@@ -273,62 +283,129 @@ elif args.space in ['tb101']:
 
 embedding_gen = EmbGenClass(normalize_zcp=True, log_synflow=True)
 
-def get_data_from_embedding(i, space, embedding_gen, representation, args):
-    if space in ['nb101', 'nb201', 'nb301']:
-        rep = getattr(embedding_gen, f'get_{representation}')(i, space=space)
-    elif space == 'tb101':
-        rep = getattr(embedding_gen, f'get_{representation}')(i, args.task)
-    else:
-        rep = getattr(embedding_gen, f'get_{representation}')(i, space)
-    return rep
-
-def get_accuracies(i, space, embedding_gen, args):
-    if space == 'tb101':
-        if args.device is None:
-            return embedding_gen.get_valacc(i, task=args.task)
-        else:
-            return embedding_gen.get_latency(i, device=args.device, space=space)
-    elif space not in ['nb101', 'nb201', 'nb301']:
-        if args.device is None:
-            return embedding_gen.get_valacc(i, space=space)
-        else:
-            return embedding_gen.get_latency(i, device=args.device, space=space)
-    else:
-        if args.device is None:
-            return embedding_gen.get_valacc(i)
-        else:
-            return embedding_gen.get_latency(i, device=args.device, space=space)
-
-def get_dataloader(args, embedding_gen, space, sample_count, representation, mode, train_indexes=None, test_size=None):
+# get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=transfer_samps, devices=[tfdevice])
+# def get_dataloader(args, embedding_gen, space, sample_count, representation, mode, train_indexes=None, test_size=None):
+def get_dataloader(args, embedding_gen, space, representation, mode, indexes, devices, batch_specified=None):
     representations = []
     accs = []
-
-    if space == "nb101" and args.test_tagates:
-        sample_indexes = nb101_train_tagates_sample_indices[:sample_count] if mode == "train" else nb101_tagates_sample_indices
+    sample_indexes = indexes
+    for device in devices:
+        if representation.__contains__("gin") == False: # adj_mlp, zcp, arch2vec, cate --> FullyConnectedNN
+            if representation == "adj_mlp": # adj_mlp --> FullyConnectedNN
+                for i in tqdm(sample_indexes):
+                    if space not in ["nb101", "nb201", "nb301", "tb101"]:
+                        adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
+                        norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
+                        norm_w_d = np.asarray(norm_w_d).flatten()
+                        if device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                        else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        adj_mat_norm = np.asarray(adj_mat_norm).flatten()
+                        adj_mat_red = np.asarray(adj_mat_red).flatten()
+                        op_mat_norm = torch.Tensor(np.asarray(op_mat_norm)).argmax(dim=1).numpy().flatten() # Careful here.
+                        op_mat_red = torch.Tensor(np.asarray(op_mat_red)).argmax(dim=1).numpy().flatten() # Careful here.
+                        hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat_norm)).flatten() / len(embedding_gen.devices())
+                        representations.append(np.concatenate((adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red, norm_w_d, hw_idx)).tolist())
+                    else:
+                        adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
+                        if space == 'tb101':
+                            if device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                            else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        else:
+                            if device == None: accs.append(embedding_gen.get_valacc(i));
+                            else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
+                        norm_w_d = np.asarray(norm_w_d).flatten()
+                        adj_mat = np.asarray(adj_mat).flatten()
+                        op_mat = torch.Tensor(np.asarray(op_mat)).argmax(dim=1).numpy().flatten() # Careful here.
+                        hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat)).flatten()
+                        representations.append(np.concatenate((adj_mat, op_mat, norm_w_d, hw_idx)).tolist())
+            else:                           # zcp, arch2vec, cate --> FullyConnectedNN
+                for i in tqdm(sample_indexes):
+                    hw_idx = np.asarray([embedding_gen.get_device_index(device),] * 8).flatten()
+                    if space in ['nb101', 'nb201', 'nb301']:
+                        exec('representations.append(np.concatenate((embedding_gen.get_{}(i), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten(), hw_idx)))'.format(representation, space))
+                    elif space=='tb101':
+                        exec('representations.append(np.concatenate((embedding_gen.get_{}(i, "{}"), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten(), hw_idx)))'.format(representation, args.task, args.task))
+                    else:
+                        exec('representations.append(np.concatenate((embedding_gen.get_{}(i, "{}"), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten(), hw_idx)))'.format(representation, space, space))
+                    if space=='tb101':
+                        if device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                        else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                    elif space not in ['nb101', 'nb201', 'nb301']:
+                        if device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                        else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                    else:
+                        if device == None: accs.append(embedding_gen.get_valacc(i));
+                        else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+            # representations = torch.stack([torch.FloatTensor(nxx) for nxx in representations])
+        else: # adj_gin, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate --> GIN_Model
+            assert representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"], "Representation Not Supported!"
+            if args.representation == "adj_gin":
+                for i in tqdm(sample_indexes):
+                    if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
+                        adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
+                        norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
+                        norm_w_d = np.asarray(norm_w_d).flatten()
+                        op_mat_norm = torch.Tensor(np.array(op_mat_norm)).argmax(dim=1)
+                        op_mat_red = torch.Tensor(np.array(op_mat_red)).argmax(dim=1)
+                        hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat_norm)).flatten()
+                        if device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                        else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        representations.append((torch.Tensor(adj_mat_norm), torch.Tensor(op_mat_norm), torch.Tensor(adj_mat_red), torch.Tensor(op_mat_red), torch.Tensor(norm_w_d), torch.Tensor(hw_idx)))
+                    else:
+                        adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
+                        op_mat = torch.Tensor(np.array(op_mat)).argmax(dim=1)
+                        norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
+                        norm_w_d = np.asarray(norm_w_d).flatten()
+                        hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat)).flatten()
+                        if space == 'tb101':
+                            if device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                            else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        else:
+                            if device == None: accs.append(embedding_gen.get_valacc(i));
+                            else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        representations.append((torch.Tensor(adj_mat), torch.Tensor(op_mat), torch.Tensor(norm_w_d), torch.Tensor(hw_idx)))
+            else: # "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate"
+                for i in tqdm(sample_indexes):
+                    if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
+                        adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
+                        method_name = 'get_{}'.format(args.representation.split("_")[-1])
+                        method_to_call = getattr(embedding_gen, method_name)
+                        zcp_ = method_to_call(i, space=space)
+                        norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
+                        norm_w_d = np.asarray(norm_w_d).flatten()
+                        op_mat_norm = torch.Tensor(np.array(op_mat_norm)).argmax(dim=1)
+                        op_mat_red = torch.Tensor(np.array(op_mat_red)).argmax(dim=1)
+                        hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat_norm)).flatten()
+                        if device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                        else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        representations.append((torch.Tensor(adj_mat_norm), torch.Tensor(op_mat_norm), torch.Tensor(adj_mat_red), torch.Tensor(op_mat_red), torch.Tensor(zcp_), torch.Tensor(norm_w_d), torch.Tensor(hw_idx)))
+                    else:
+                        adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
+                        method_name = 'get_{}'.format(args.representation.split("_")[-1])
+                        method_to_call = getattr(embedding_gen, method_name)
+                        if space == 'tb101':
+                            zcp_ = method_to_call(i, task=args.task)
+                        else:
+                            zcp_ = method_to_call(i)
+                        norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
+                        norm_w_d = np.asarray(norm_w_d).flatten()
+                        op_mat = torch.Tensor(np.array(op_mat)).argmax(dim=1)
+                        hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat)).flatten()
+                        if space == 'tb101':
+                            if device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                            else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        else:
+                            if device == None: accs.append(embedding_gen.get_valacc(i));
+                            else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
+                        representations.append((torch.Tensor(adj_mat), torch.LongTensor(op_mat), torch.Tensor(zcp_), torch.Tensor(norm_w_d), torch.Tensor(hw_idx)))
+    dataset = CustomDataset(representations, accs)
+    if batch_specified != None:
+        dataloader = DataLoader(dataset, batch_size=batch_specified, shuffle=True if mode=='train' else False)
     else:
-        total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
-        if mode == "train":
-            sample_indexes = random.sample(range(total_samples - 1), sample_count)
-        else:
-            remaining_indexes = list(set(range(total_samples - 1)) - set(train_indexes))
-            sample_indexes = random.sample(remaining_indexes, test_size) if test_size is not None else remaining_indexes
-
-    if "gin" not in representation:
-        for i in tqdm(sample_indexes):
-            accs.append(get_accuracies(i, space, embedding_gen, args))
-            
-            if representation == "adj_mlp":
-                adj_op_values = embedding_gen.get_adj_op(i, space=space).values() if space not in ["nb101", "nb201", "nb301", "tb101"] else embedding_gen.get_adj_op(i).values()
-                norm_w_d = np.asarray(embedding_gen.get_norm_w_d(i, space=space)).flatten()
-                ops = [torch.Tensor(np.asarray(op)).argmax(dim=1).numpy().flatten() for op in adj_op_values[1::2]]
-                matrices = [np.asarray(item).flatten() for item in adj_op_values[::2]]
-                representations.append(np.concatenate((*matrices, *ops, norm_w_d)).tolist())
-            else:
-                rep = get_data_from_embedding(i, space, embedding_gen, representation, args)
-                norm_w_d = np.asarray(embedding_gen.get_norm_w_d(i, space=space)).flatten()
-                representations.append(np.concatenate((rep, norm_w_d)))
-
-        representations = torch.stack([torch.FloatTensor(item) for item in representations])
+        dataloader = DataLoader(dataset, batch_size=args.batch_size if mode=='train' else args.test_batch_size, shuffle=True if mode=='train' else False)
+    return dataloader, sample_indexes
+    
 
 def get_input_dimensions(train_dataloader, representation): 
     if representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
@@ -341,7 +418,7 @@ def get_input_dimensions(train_dataloader, representation):
 def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
     none_op_ind = 130  # placeholder
     return GIN_Model(
-        self.device=args.source_device,
+        device=args.source_devices,
         cpu_gpu_device=args.cpu_gpu_device,
         dual_gcn=dual_gcn,
         num_zcps=num_zcps,
@@ -351,14 +428,14 @@ def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
         node_embedding_dim=48,
         zcp_embedding_dim=48,
         hid_dim=96,
-        gcn_out_dims=args.forward_gcn_out_dims,
+        forward_gcn_out_dims=args.forward_gcn_out_dims,
         op_fp_gcn_out_dims=args.op_fp_gcn_out_dims,
         mlp_dims=[200, 200, 200],
         dropout=0.0,
         replace_bgcn_mlp_dims=args.replace_bgcn_mlp_dims,
-        nn_emb_dims=128,
         input_zcp=input_zcp,
         zcp_embedder_dims=[128, 128],
+        updateopemb_dims = [128],
         ensemble_fuse_method=args.ensemble_fuse_method,
         gtype=args.gnn_type
     )
@@ -406,17 +483,17 @@ sample_counts = sample_tests[args.space]
 transfer_sample_counts = transfer_sample_tests[args.space]
 samp_eff = {}
 results_dict = {}
-
+space = args.space
 for tr_ in range(args.num_trials):
     for sample_count in sample_counts:
         # Create a function that chooses the best networks with a provided strategy, use only those networks
         train_samps = get_distinct_index(args, embedding_gen, args.space, sample_count, args.sampling_metric, args.metric_device)
         # Create a train data-loader with 'sample_count' samples of each 'source_device'
-        train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=train_samps, devices=args.source_devices)
+        train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=train_samps, devices=args.source_devices, batch_specified=128)
         total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
         test_samples = list(set(range(total_samples - 1)) - set(train_indexes))
         test_dataloader, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=args.source_devices)
-        test_dataloaderlowbs, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:80], devices=args.source_devices)
+        test_dataloaderlowbs, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:4], devices=args.source_devices)
 
         input_dim = get_input_dimensions(train_dataloader, representation)
 
@@ -426,7 +503,7 @@ for tr_ in range(args.num_trials):
             model = create_gin_model(input_dim, 13, dual_gcn, input_zcp, args)
 
         elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
-            num_zcps = next(iter(train_dataloader))[0][-2].shape[1]
+            num_zcps = next(iter(train_dataloader))[0][-3].shape[1]
             dual_gcn = args.space not in ["nb101", "nb201", "nb301", "tb101"]
             input_zcp = True,
             model = create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args)
@@ -436,22 +513,27 @@ for tr_ in range(args.num_trials):
         # Train on the train data-loader (pwl_train)
         model.to(args.cpu_gpu_device)
         params_optimize = list(model.parameters())
+        criterion = torch.nn.MSELoss()
         optimizer = torch.optim.AdamW(params_optimize, lr=args.lr, weight_decay=args.weight_decay)
         scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.eta_min)
         pt_kdt_l5, pt_spr_l5 = [], []
         for epoch in range(args.epochs):
             if epoch > args.epochs - 5:
+                start_time = time.time()
                 model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader, epoch)
                 pt_kdt_l5.append(kdt)
                 pt_spr_l5.append(spr)
+                end_time = time.time()
                 print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
             else:
+                start_time = time.time()
                 model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloaderlowbs, epoch)
+                end_time = time.time()
                 print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
 
         # Save the trained network state_dict
         trained_state_dict = model.state_dict()
-        for tfdevice in target_devices:
+        for tfdevice in args.target_devices:
             if tfdevice not in results_dict:
                 results_dict[tfdevice] = {}
             for transfer_count in transfer_sample_counts:
@@ -467,7 +549,7 @@ for tr_ in range(args.num_trials):
                 test_samples = list(set(range(total_samples - 1)) - set(transfer_samps))
                 transfer_dataloader, transfer_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=transfer_samps, devices=[tfdevice])
                 transfer_test_dataloader, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=[tfdevice])
-                transfer_test_dataloaderlowbs, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:80], devices=[tfdevice])
+                transfer_test_dataloaderlowbs, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:4], devices=[tfdevice])
                 # Train on the transfer data-loader (pwl_train)
                 model.to(args.cpu_gpu_device)
                 params_optimize = list(model.parameters())
@@ -519,7 +601,8 @@ if not os.path.exists('correlation_results/{}'.format(args.name_desc)):
 filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 
 header = "uid,name_desc,seed,space,source_devices,sampling_metric,metric_device,target_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
-opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
+opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device,spr,kdt,spr_std,kdt_std"
+# opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
@@ -544,11 +627,11 @@ with open(filename, 'a') as f:
                     str(args.representation),
                     str(args.gnn_type),
                     str(args.num_trials),
-                    str(args.op_fp_gcn_out_dims),
-                    str(args.forward_gcn_out_dims),
-                    str(args.replace_bgcn_mlp_dims),
+                    str("_".join([str(zlx) for zlx in args.op_fp_gcn_out_dims])),
+                    str("_".join([str(zlx) for zlx in args.forward_gcn_out_dims])),
+                    str("_".join([str(zlx) for zlx in args.replace_bgcn_mlp_dims])),
                     str(args.ensemble_fuse_method),
-                    str(args.fb_conversion_dims),
+                    str("_".join([str(zlx) for zlx in args.fb_conversion_dims])),
                     str(args.lr),
                     str(args.weight_decay),
                     str(args.epochs),

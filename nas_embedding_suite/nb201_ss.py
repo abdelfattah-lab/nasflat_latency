@@ -61,7 +61,36 @@ class NASBench201:
                     'global': 7
                 }
         self._index_to_opname = {v: k for k, v in self._opname_to_index.items()}
-        self.nb2_api  = NB2API(BASE_PATH + "NAS-Bench-201-v1_1-096897.pth")
+        
+        
+        self.nb2_api_valac_cache_file = "nb2valacc.pkl"
+        self.vacccache = {}
+        self.paramcache = {}
+        if os.path.exists(self.nb2_api_valac_cache_file):
+            with open(self.nb2_api_valac_cache_file, 'rb') as f:
+                self.vacccache = pickle.load(f)
+        else:
+            # If the cache file doesn't exist, populate the cache dictionary for all idx values
+            self.nb2_api  = NB2API(BASE_PATH + "NAS-Bench-201-v1_1-096897.pth")
+            for idx in range(15625):  # Or whatever method provides the number of architectures
+                self.vacccache[idx] = self._compute_valacc(idx)
+            # Save to cache file
+            with open(self.nb2_api_valac_cache_file, 'wb') as f:
+                pickle.dump(self.vacccache, f)
+
+        self.nb2_api_params_cache_file = "nb2valacc.pkl"
+        
+        if os.path.exists(self.nb2_api_params_cache_file):
+            with open(self.nb2_api_params_cache_file, 'rb') as f:
+                self.paramcache = pickle.load(f)
+        else:
+            # If the cache file doesn't exist, populate the cache dictionary for all idx values
+            for idx in range(15625):  # Or whatever method provides the number of architectures
+                self.paramcache[idx] = self._compute_params(idx)
+            # Save to cache file
+            with open(self.nb2_api_params_cache_file, 'wb') as f:
+                pickle.dump(self.paramcache, f)
+
         print("Loaded files in: ", time.time() - a, " seconds")
         self.zcps = ['epe_nas', 'fisher', 'flops', 'grad_norm', 'grasp', 'jacov', 'l2_norm', 'nwot', 'params', 'plain', 'snip', 'synflow', 'zen']    
         self.cache = {}
@@ -103,6 +132,8 @@ class NASBench201:
         for k, v in latency_data.items():
             latency_data[k] = self.min_max_scaling(np.asarray(v)).tolist()
         self.latency_data = latency_data
+        self.devices = devices
+        self.device_key = {device: idx for idx, device in enumerate(self.devices)}
         self.zready = False
         self.zcp_cache = {}
         
@@ -212,28 +243,53 @@ class NASBench201:
     def get_norm_w_d(self, idx, space=None):
         return [0, 0]
     
-    def get_valacc(self, idx, space=None):
-        if self.cready:
-            return self.cache[idx]['acc']
-        else:
-            arch_str = self.nb2_api.query_by_index(idx).arch_str
-            arch_index = self.nb2_api.query_index_by_arch(arch_str)
-            # acc_results = self.nb2_api.query_by_index(arch_index, 'cifar10-valid', use_12epochs_result=False)
-            try:
-                acc_results = sum([self.nb2_api.get_more_info(arch_index, 'cifar10-valid', None,
-                                                        use_12epochs_result=False,
-                                                        is_random=seed)['valid-accuracy'] for seed in [777, 888, 999]])/3.
-                val_acc = acc_results['valid-accuracy'] / 100.
-            except:
-                # some architectures only contain 1 seed result
-                acc_results = self.nb2_api.get_more_info(arch_index, 'cifar10-valid', None,
-                                                        use_12epochs_result=False,
-                                                        is_random=False)['valid-accuracy'] 
-                val_acc = acc_results / 100.
-            return val_acc
+    def _compute_valacc(self, idx):
+        arch_str = self.nb2_api.query_by_index(idx).arch_str
+        arch_index = self.nb2_api.query_index_by_arch(arch_str)
+        try:
+            acc_results = sum([self.nb2_api.get_more_info(arch_index, 'cifar10-valid', None,
+                                                    use_12epochs_result=False,
+                                                    is_random=seed)['valid-accuracy'] for seed in [777, 888, 999]]) / 3.
+            val_acc = acc_results['valid-accuracy'] / 100.
+        except:
+            # some architectures only contain 1 seed result
+            acc_results = self.nb2_api.get_more_info(arch_index, 'cifar10-valid', None,
+                                                    use_12epochs_result=False,
+                                                    is_random=False)['valid-accuracy']
+            val_acc = acc_results / 100.
+        return val_acc
+
+    def get_valacc(self, idx):
+        # Use cached result
+        return self.vacccache.get(idx, None)  # Returns None if idx is not in the cache (though it shouldn't happen)
+
+    # def get_valacc(self, idx, space=None):
+    #     if self.cready:
+    #         return self.cache[idx]['acc']
+    #     else:
+    #         arch_str = self.nb2_api.query_by_index(idx).arch_str
+    #         arch_index = self.nb2_api.query_index_by_arch(arch_str)
+    #         # acc_results = self.nb2_api.query_by_index(arch_index, 'cifar10-valid', use_12epochs_result=False)
+    #         try:
+    #             acc_results = sum([self.nb2_api.get_more_info(arch_index, 'cifar10-valid', None,
+    #                                                     use_12epochs_result=False,
+    #                                                     is_random=seed)['valid-accuracy'] for seed in [777, 888, 999]])/3.
+    #             val_acc = acc_results['valid-accuracy'] / 100.
+    #         except:
+    #             # some architectures only contain 1 seed result
+    #             acc_results = self.nb2_api.get_more_info(arch_index, 'cifar10-valid', None,
+    #                                                     use_12epochs_result=False,
+    #                                                     is_random=False)['valid-accuracy'] 
+    #             val_acc = acc_results / 100.
+    #         return val_acc
         
     def get_latency(self, idx, space=None, device="1080ti_1"):
         return self.latency_data[device][idx]
+    
+    def get_device_index(self, device="1080ti_1"):
+        return self.device_key[device]
+    # def get_device_index(self, device="1080ti_1"):
+    #     return 2
 
     def get_arch2vec(self, idx, joint=None, space=None):
         return self.arch2vec_nb201[idx]['feature'].tolist()
@@ -343,5 +399,8 @@ class NASBench201:
         arch_vector = [_opname_to_index[op] for node in nodes for op in node]
         return arch_vector
     
+    def _compute_params(self, idx):
+        return self.nb2_api.get_cost_info(idx, dataset='cifar10-valid')['params'] * 10000000
+    
     def get_params(self, idx):
-        return self.nb2_api.get_cost_info(idx, dataset='cifar10-valid')['params']*10000000
+        return self.paramcache.get(idx, None)  # Use cached result
