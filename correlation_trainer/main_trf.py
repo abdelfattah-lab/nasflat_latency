@@ -11,7 +11,8 @@ from utils import CustomDataset, get_tagates_sample_indices
 from torch.optim.lr_scheduler import StepLR
 from pprint import pprint
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
+from sklearn.metrics import pairwise_distances
+from sklearn.cluster import KMeans
 sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
 
 # python -i new_main.py --space nb101 --representation adj_gin_zcp --test_tagates --loss_type pwl --sample_sizes 72 --batch_size 8
@@ -20,63 +21,52 @@ sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
 parser = argparse.ArgumentParser()
 ####################################################### Search Space Choices #######################################################
 parser.add_argument('--space', type=str, default='Amoeba')         # nb101, nb201, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
-parser.add_argument('--source_device', type=str, default=None)            # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
-                                                                   #    'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
-                                                                   #    'fpga', 'gold_6226', 'gold_6240', 'mobile_cpu_snapdragon_450_cortex_a53_int8', 'mobile_cpu_snapdragon_675_kryo_460_int8', 'mobile_cpu_snapdragon_855_kryo_485_int8', \
-                                                                   #    'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_450_adreno_506_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', \
-                                                                   #    'mobile_gpu_snapdragon_855_adreno_640_int8', 'nwot_nb201_cifar10', 'params_nb201_cifar10', 'pixel2', 'pixel3', 'raspi4', 'samsung_a50', 'samsung_s7', 'silver_4114', \
-                                                                   #    'silver_4210r', 'titan_rtx_1', 'titan_rtx_256', 'titan_rtx_32', 'titanx_1', 'titanx_256', 'titanx_32', 'titanxp_1', 'titanxp_256', 'titanxp_32'
-                                                                   # If device is NOT None, space automatically becomes 'nb201'. 
-                                                                   # Sample selection, hw encoding of nodes, few shot HW only.
-                                                                   # Section 1   : Architectural
-                                                                   # Section 2.1 : Network Sampling
-                                                                   # Section 2.2 : Minimizing Pre-Training Samples
-                                                                   # Section 3.1 : Device Embedding
-                                                                   # Section 3.2 : Generalizability of predictor across 'n' devices vs fine tuning 
-                                                                   # Section 4   : Transfer Learning Across Hardware Devices (with accuracy as well?)
-                                                                   # Section 5   : Another SS? -> Can we look at NB101, NB301, NDS, TB101 if they have even a single device latency data?
-                                                                   # BRAINSTORM:
-                                                                   # For network sampling: use arch2vec, cate etc. [random, flops, params, arch2vec, cate, zcp, accuracy/latency (oracle)]
-                                                                   # For device embedding, each operation may require a unique device embedding.
-                                                                   #            So, use an embedding for each operation. (e.g. 5 ops, 5 embeddings per device) and concatenate appropriately.
-parser.add_argument('--target_device', type=str, default=None)     
+parser.add_argument('--source_devices', nargs='+', type=str, default=['1080ti_1','1080ti_32','1080ti_256','silver_4114','silver_4210r','samsung_a50','pixel3','essential_ph_1','samsung_s7'])
+    # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
+    #    'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
+    #    'fpga', 'gold_6226', 'gold_6240', 'mobile_cpu_snapdragon_450_cortex_a53_int8', 'mobile_cpu_snapdragon_675_kryo_460_int8', 'mobile_cpu_snapdragon_855_kryo_485_int8', \
+    #    'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_450_adreno_506_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', \
+    #    'mobile_gpu_snapdragon_855_adreno_640_int8', 'nwot_nb201_cifar10', 'params_nb201_cifar10', 'pixel2', 'pixel3', 'raspi4', 'samsung_a50', 'samsung_s7', 'silver_4114', \
+    #    'silver_4210r', 'titan_rtx_1', 'titan_rtx_256', 'titan_rtx_32', 'titanx_1', 'titanx_256', 'titanx_32', 'titanxp_1', 'titanxp_256', 'titanxp_32'
+    # If device is NOT None, space automatically becomes 'nb201'. 
+    # Sample selection, hw encoding of nodes, few shot HW only.
+    # Section 1   : Architectural
+    # Section 2.1 : Network Sampling
+    # Section 2.2 : Minimizing Pre-Training Samples
+    # Section 3.1 : Device Embedding
+    # Section 3.2 : Generalizability of predictor across 'n' devices vs fine tuning 
+    # Section 4   : Transfer Learning Across Hardware Devices (with accuracy as well?)
+    # Section 5   : Another SS? -> Can we look at NB101, NB301, NDS, TB101 if they have even a single device latency data?
+    # BRAINSTORM:
+    # For network sampling: use arch2vec, cate etc. [random, flops, params, arch2vec, cate, zcp, accuracy/latency (oracle)]
+    # For device embedding, each operation may require a unique device embedding.
+    #            So, use an embedding for each operation. (e.g. 5 ops, 5 embeddings per device) and concatenate appropriately.
+parser.add_argument('--sampling_metric', type=str, default="random")
+parser.add_argument('--metric_device', type=str, default="titanx_256")
+parser.add_argument('--target_devices', nargs='+', type=str, default=['titan_rtx_256','gold_6226','fpga','pixel2','raspi4','eyeriss'])
+# parser.add_argument('--sample_size', type=int, default=900)
+parser.add_argument('--sample_sizes', nargs='+', type=int, default=[900]) # Default NB101
+parser.add_argument('--transfer_sample_sizes', nargs='+', type=int, default=[5,10,20])
 parser.add_argument('--task', type=str, default='class_scene')     # all tb101 tasks supported
 parser.add_argument('--representation', type=str, default='cate')  # adj_mlp, adj_gin, zcp (except nb301), cate, arch2vec, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate supported. # adj_gin_org
-parser.add_argument('--test_tagates', action='store_true')         # Currently only supports testing on NB101 networks. Easy to extend.
 parser.add_argument('--loss_type', type=str, default='pwl')        # mse, pwl supported
 parser.add_argument('--gnn_type', type=str, default='dense')       # dense, gat, gat_mh supported
-parser.add_argument('--back_dense', action="store_true")           # If True, backward flow will be DenseFlow
 parser.add_argument('--num_trials', type=int, default=3)
 parser.add_argument('--op_fp_gcn_out_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
 parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128])
-parser.add_argument('--separate_op_fp', action="store_true")        # True it seems                          # <TEST NOW>
-parser.add_argument('--no_residual', action="store_true")                                                    # <DEPRECATED, HARDCODED>
-parser.add_argument('--back_mlp', action="store_true")              # True for best result                   # <DEPRECATED, HARDCODED>
-parser.add_argument('--back_opemb', action="store_true")            # True for best result                   # <DEPRECATED, HARDCODED>
-parser.add_argument('--randopupdate', action="store_true")          # False for best result                  # <DEPRECATED, HARDCODED>
-parser.add_argument('--back_opemb_only', action="store_true")       # False for best result                  # <DEPRECATED, HARDCODED>
-parser.add_argument('--opemb_direct', action="store_true")          # True for best result (5/8 improvement) # <DEPRECATED, HARDCODED>
-parser.add_argument('--bmlp_ally', action="store_true")             # 27 False, 13 True (False best result)  # <DEPRECATED, HARDCODED>
-parser.add_argument('--unroll_fgcn', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
-parser.add_argument('--back_y_info', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
-parser.add_argument('--ensemble_fuse_method', type=str, default='add')   # add, mlp (Need to test)           # <DEPRECATED, HARDCODED>
-parser.add_argument('--detach_mode', type=str, default='default')   # default for best result, using none    # <DEPRECATED, HARDCODED>
+parser.add_argument('--ensemble_fuse_method', type=str, default='add')               # add, mlp (Need to test)  # <DEPRECATED, HARDCODED>
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
-parser.add_argument('--no_leakyrelu', action="store_true")
-parser.add_argument('--no_unique_attention_projection', action="store_true")
-parser.add_argument('--no_opattention', action="store_true")
-parser.add_argument('--no_attention_rescale', action="store_true")
-parser.add_argument('--timesteps', type=int, default=2)
 ###################################################### Other Hyper-Parameters ######################################################
 parser.add_argument('--name_desc', type=str, default=None)
-parser.add_argument('--sample_sizes', nargs='+', type=int, default=[72, 364, 728, 3645, 7280]) # Default NB101
 parser.add_argument('--cpu_gpu_device', type=str, default='cuda:0')
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--test_batch_size', type=int, default=128)
 parser.add_argument('--num_workers', type=int, default=4)
 parser.add_argument('--test_size', type=int, default=None)
+parser.add_argument('--transfer_epochs', type=int, default=30)
+parser.add_argument('--transfer_lr', type=float, default=1e-3)
 parser.add_argument('--epochs', type=int, default=150)
 parser.add_argument('--lr_step', type=int, default=10)
 parser.add_argument('--lr_gamma', type=float, default=0.6)
@@ -87,24 +77,22 @@ parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--id', type=int, default=0)
 ####################################################################################################################################
 args = parser.parse_args()
-device = args.source_device
+device = args.device
 if args.representation.__contains__("adj_gin_org"):
     args.representation = args.representation.replace("adj_gin_org", "adj_gin")
     from models_abl import GIN_Model, FullyConnectedNN # Use original model with default set arguments
 else:
     from models_abl_p2 import GIN_Model, FullyConnectedNN
-if args.source_device is not None:
-    assert args.target_device is not None, "Please provide a target device for the experiment."
-    assert args.space == 'nb201', "Please provide a SS for the experiment."
-if args.source_device is not None:
-    args.space = 'nb201'
+
+if args.device is not None:
+    assert args.space in ["nb201"], "If device is not None, space MUST be nb201."
+
+assert args.metric_device not in args.source_devices, "Metric device cannot be in source devices."
+assert args.metric_device not in args.target_devices, "Metric device cannot be in target devices."
+
 sample_tests = {}
 sample_tests[args.space] = args.sample_sizes
-args.residual = not args.no_residual
-args.unique_attention_projection = not args.no_unique_attention_projection
-args.opattention = not args.no_opattention
-args.leakyrelu = not args.no_leakyrelu
-args.attention_rescale = not args.no_attention_rescale
+transfer_sample_tests[args.space] = args.transfer_sample_sizes
 
 assert args.name_desc is not None, "Please provide a name description for the experiment."
 
@@ -285,333 +273,227 @@ elif args.space in ['tb101']:
 
 embedding_gen = EmbGenClass(normalize_zcp=True, log_synflow=True)
 
+def get_data_from_embedding(i, space, embedding_gen, representation, args):
+    if space in ['nb101', 'nb201', 'nb301']:
+        rep = getattr(embedding_gen, f'get_{representation}')(i, space=space)
+    elif space == 'tb101':
+        rep = getattr(embedding_gen, f'get_{representation}')(i, args.task)
+    else:
+        rep = getattr(embedding_gen, f'get_{representation}')(i, space)
+    return rep
+
+def get_accuracies(i, space, embedding_gen, args):
+    if space == 'tb101':
+        if args.device is None:
+            return embedding_gen.get_valacc(i, task=args.task)
+        else:
+            return embedding_gen.get_latency(i, device=args.device, space=space)
+    elif space not in ['nb101', 'nb201', 'nb301']:
+        if args.device is None:
+            return embedding_gen.get_valacc(i, space=space)
+        else:
+            return embedding_gen.get_latency(i, device=args.device, space=space)
+    else:
+        if args.device is None:
+            return embedding_gen.get_valacc(i)
+        else:
+            return embedding_gen.get_latency(i, device=args.device, space=space)
+
 def get_dataloader(args, embedding_gen, space, sample_count, representation, mode, train_indexes=None, test_size=None):
     representations = []
     accs = []
-    if space == "nb101" and args.test_tagates:
-        print("Sampling ONLY TAGATES NB101 networks for replication")
-        if mode == "train":
-            sample_indexes = nb101_train_tagates_sample_indices[:sample_count]
-        else:
-            sample_indexes = nb101_tagates_sample_indices
-    else:
-        if mode == "train":
-            if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
-                sample_indexes = random.sample(range(embedding_gen.get_numitems(space)-1), sample_count)
-            else:
-                sample_indexes = random.sample(range(embedding_gen.get_numitems()-1), sample_count)
-        else:
-            if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
-                remaining_indexes = list(set(range(embedding_gen.get_numitems(space)-1)) - set(train_indexes))
-            else:
-                remaining_indexes = list(set(range(embedding_gen.get_numitems()-1)) - set(train_indexes))
-            if test_size is not None:
-                sample_indexes = random.sample(remaining_indexes, test_size)
-            else:
-                sample_indexes = remaining_indexes
-    if representation.__contains__("gin") == False: # adj_mlp, zcp, arch2vec, cate --> FullyConnectedNN
-        if representation == "adj_mlp": # adj_mlp --> FullyConnectedNN
-            for i in tqdm(sample_indexes):
-                if space not in ["nb101", "nb201", "nb301", "tb101"]:
-                    adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
-                    norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
-                    norm_w_d = np.asarray(norm_w_d).flatten()
-                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    adj_mat_norm = np.asarray(adj_mat_norm).flatten()
-                    adj_mat_red = np.asarray(adj_mat_red).flatten()
-                    op_mat_norm = torch.Tensor(np.asarray(op_mat_norm)).argmax(dim=1).numpy().flatten() # Careful here.
-                    op_mat_red = torch.Tensor(np.asarray(op_mat_red)).argmax(dim=1).numpy().flatten() # Careful here.
-                    representations.append(np.concatenate((adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red, norm_w_d)).tolist())
-                else:
-                    adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
-                    if space == 'tb101':
-                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    else:
-                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
-                    norm_w_d = np.asarray(norm_w_d).flatten()
-                    adj_mat = np.asarray(adj_mat).flatten()
-                    op_mat = torch.Tensor(np.asarray(op_mat)).argmax(dim=1).numpy().flatten() # Careful here.
-                    representations.append(np.concatenate((adj_mat, op_mat, norm_w_d)).tolist())
-        else:                           # zcp, arch2vec, cate --> FullyConnectedNN
-            for i in tqdm(sample_indexes):
-                if space in ['nb101', 'nb201', 'nb301']:
-                    exec('representations.append(np.concatenate((embedding_gen.get_{}(i), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten())))'.format(representation, space))
-                elif space=='tb101':
-                    exec('representations.append(np.concatenate((embedding_gen.get_{}(i, "{}"), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten())))'.format(representation, args.task, args.task))
-                else:
-                    exec('representations.append(np.concatenate((embedding_gen.get_{}(i, "{}"), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten())))'.format(representation, space, space))
-                if space=='tb101':
-                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                elif space not in ['nb101', 'nb201', 'nb301']:
-                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                else:
-                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-        representations = torch.stack([torch.FloatTensor(nxx) for nxx in representations])
-    else: # adj_gin, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate --> GIN_Model
-        assert representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"], "Representation Not Supported!"
-        if args.representation == "adj_gin":
-            for i in tqdm(sample_indexes):
-                if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
-                    adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
-                    norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
-                    norm_w_d = np.asarray(norm_w_d).flatten()
-                    op_mat_norm = torch.Tensor(np.array(op_mat_norm)).argmax(dim=1)
-                    op_mat_red = torch.Tensor(np.array(op_mat_red)).argmax(dim=1)
-                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    representations.append((torch.Tensor(adj_mat_norm), torch.Tensor(op_mat_norm), torch.Tensor(adj_mat_red), torch.Tensor(op_mat_red), torch.Tensor(norm_w_d)))
-                else:
-                    adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
-                    op_mat = torch.Tensor(np.array(op_mat)).argmax(dim=1)
-                    norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
-                    norm_w_d = np.asarray(norm_w_d).flatten()
-                    if space == 'tb101':
-                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    else:
-                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    representations.append((torch.Tensor(adj_mat), torch.Tensor(op_mat), torch.Tensor(norm_w_d)))
-        else: # "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate"
-            for i in tqdm(sample_indexes):
-                if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
-                    adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
-                    method_name = 'get_{}'.format(args.representation.split("_")[-1])
-                    method_to_call = getattr(embedding_gen, method_name)
-                    zcp_ = method_to_call(i, space=space)
-                    norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
-                    norm_w_d = np.asarray(norm_w_d).flatten()
-                    op_mat_norm = torch.Tensor(np.array(op_mat_norm)).argmax(dim=1)
-                    op_mat_red = torch.Tensor(np.array(op_mat_red)).argmax(dim=1)
-                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    representations.append((torch.Tensor(adj_mat_norm), torch.Tensor(op_mat_norm), torch.Tensor(adj_mat_red), torch.Tensor(op_mat_red), torch.Tensor(zcp_), torch.Tensor(norm_w_d)))
-                else:
-                    adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
-                    method_name = 'get_{}'.format(args.representation.split("_")[-1])
-                    method_to_call = getattr(embedding_gen, method_name)
-                    if space == 'tb101':
-                        zcp_ = method_to_call(i, task=args.task)
-                    else:
-                        zcp_ = method_to_call(i)
-                    norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
-                    norm_w_d = np.asarray(norm_w_d).flatten()
-                    op_mat = torch.Tensor(np.array(op_mat)).argmax(dim=1)
-                    if space == 'tb101':
-                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    else:
-                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
-                    representations.append((torch.Tensor(adj_mat), torch.LongTensor(op_mat), torch.Tensor(zcp_), torch.Tensor(norm_w_d)))
 
-    dataset = CustomDataset(representations, accs)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size if mode=='train' else args.test_batch_size, shuffle=True if mode=='train' else False)
-    return dataloader, sample_indexes
-    
+    if space == "nb101" and args.test_tagates:
+        sample_indexes = nb101_train_tagates_sample_indices[:sample_count] if mode == "train" else nb101_tagates_sample_indices
+    else:
+        total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
+        if mode == "train":
+            sample_indexes = random.sample(range(total_samples - 1), sample_count)
+        else:
+            remaining_indexes = list(set(range(total_samples - 1)) - set(train_indexes))
+            sample_indexes = random.sample(remaining_indexes, test_size) if test_size is not None else remaining_indexes
+
+    if "gin" not in representation:
+        for i in tqdm(sample_indexes):
+            accs.append(get_accuracies(i, space, embedding_gen, args))
+            
+            if representation == "adj_mlp":
+                adj_op_values = embedding_gen.get_adj_op(i, space=space).values() if space not in ["nb101", "nb201", "nb301", "tb101"] else embedding_gen.get_adj_op(i).values()
+                norm_w_d = np.asarray(embedding_gen.get_norm_w_d(i, space=space)).flatten()
+                ops = [torch.Tensor(np.asarray(op)).argmax(dim=1).numpy().flatten() for op in adj_op_values[1::2]]
+                matrices = [np.asarray(item).flatten() for item in adj_op_values[::2]]
+                representations.append(np.concatenate((*matrices, *ops, norm_w_d)).tolist())
+            else:
+                rep = get_data_from_embedding(i, space, embedding_gen, representation, args)
+                norm_w_d = np.asarray(embedding_gen.get_norm_w_d(i, space=space)).flatten()
+                representations.append(np.concatenate((rep, norm_w_d)))
+
+        representations = torch.stack([torch.FloatTensor(item) for item in representations])
+
+def get_input_dimensions(train_dataloader, representation): 
+    if representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
+        return next(iter(train_dataloader))[0][1].shape[1]
+    elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+        return next(iter(train_dataloader))[0].shape[1]
+    else:
+        return None
+
+def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
+    none_op_ind = 130  # placeholder
+    return GIN_Model(
+        self.device=args.source_device,
+        cpu_gpu_device=args.cpu_gpu_device,
+        dual_gcn=dual_gcn,
+        num_zcps=num_zcps,
+        vertices=input_dim,
+        none_op_ind=none_op_ind,
+        op_embedding_dim=48,
+        node_embedding_dim=48,
+        zcp_embedding_dim=48,
+        hid_dim=96,
+        gcn_out_dims=args.forward_gcn_out_dims,
+        op_fp_gcn_out_dims=args.op_fp_gcn_out_dims,
+        mlp_dims=[200, 200, 200],
+        dropout=0.0,
+        replace_bgcn_mlp_dims=args.replace_bgcn_mlp_dims,
+        nn_emb_dims=128,
+        input_zcp=input_zcp,
+        zcp_embedder_dims=[128, 128],
+        ensemble_fuse_method=args.ensemble_fuse_method,
+        gtype=args.gnn_type
+    )
+
+def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
+    vectors = list(arch2vecs_.values())
+    kmeans = KMeans(n_clusters=n).fit(vectors)
+    # Choose the vectors closest to the centroids as the representatives
+    distinct_indices = []
+    for center in kmeans.cluster_centers_:
+        distances = np.linalg.norm(vectors - center, axis=1)
+        distinct_indices.append(np.argmin(distances))
+    # Return the corresponding keys from the arch2vecs_ dictionary
+    keys = list(arch2vecs_.keys())
+    return [keys[i] for i in distinct_indices]
+
+
+def get_distinct_index(args, embedding_gen, space, sample_count, metric, device): # [random, params, arc2vec, cate, zcp, accuracy/latency (oracle)]
+    if metric == 'random':
+        return random.sample(list(range(embedding_gen.get_numitems(space=space))), sample_count)
+    elif metric == 'params':
+        params_ = {i: embedding_gen.get_params(i) for i in list(range(embedding_gen.get_numitems(space=space)))}
+        params_ = {k: v for k, v in sorted(params_.items(), key=lambda item: item[1])}
+        buckets = np.array_split(list(params_.keys()), sample_count)
+        return [random.choice(bucket) for bucket in buckets]
+    elif metric in ['arch2vec', 'cate', 'zcp', 'a2vcatezcp']:
+        metricdict_ = {i: getattr(embedding_gen, f"get_{metric}")(i) for i in list(range(embedding_gen.get_numitems(space=space)))}
+        return get_distinct_arch2vec_kmeans(metricdict_, sample_count)
+    elif metric == 'accuracy':
+        accs_ = {i: embedding_gen.get_valacc(i, space=space) for i in list(range(embedding_gen.get_numitems(space=space)))}
+        accs_ = {k: v for k, v in sorted(accs_.items(), key=lambda item: item[1])}
+        buckets = np.array_split(list(accs_.keys()), sample_count)
+        return [random.choice(bucket) for bucket in buckets]
+    elif metric == 'latency':
+        latency_ = {i: embedding_gen.get_latency(i, space=space, device=device) for i in list(range(embedding_gen.get_numitems(space=space)))}
+        latency_ = {k: v for k, v in sorted(latency_.items(), key=lambda item: item[1])}
+        buckets = np.array_split(list(latency_.keys()), sample_count)
+        return [random.choice(bucket) for bucket in buckets]
+    else:
+        raise NotImplementedError
+
 
 representation = args.representation
 sample_counts = sample_tests[args.space]
+transfer_sample_counts = transfer_sample_tests[args.space]
 samp_eff = {}
-across_trials = {sample_count: [] for sample_count in sample_counts}
+results_dict = {}
 
 for tr_ in range(args.num_trials):
     for sample_count in sample_counts:
-        # if sample_count > 32:
-        #     args.batch_size = int(sample_count//4)
-        train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, sample_count, representation, mode='train')
-        test_dataloader, test_indexes = get_dataloader(args, embedding_gen, args.space, sample_count=None, representation=representation, mode='test', train_indexes=train_indexes, test_size=args.test_size)
-        test_dataloader_lowbs, test_indexes = get_dataloader(args, embedding_gen, args.space, sample_count=None, representation=representation, mode='test', train_indexes=train_indexes, test_size=80)
+        # Create a function that chooses the best networks with a provided strategy, use only those networks
+        train_samps = get_distinct_index(args, embedding_gen, args.space, sample_count, args.sampling_metric, args.metric_device)
+        # Create a train data-loader with 'sample_count' samples of each 'source_device'
+        train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=train_samps, devices=args.source_devices)
+        total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
+        test_samples = list(set(range(total_samples - 1)) - set(train_indexes))
+        test_dataloader, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=args.source_devices)
+        test_dataloaderlowbs, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:80], devices=args.source_devices)
+
+        input_dim = get_input_dimensions(train_dataloader, representation)
 
         if representation == "adj_gin":
-            input_dim = next(iter(train_dataloader))[0][1].shape[1]
-            none_op_ind = 130 # placeholder
-            if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(device=args.cpu_gpu_device,
-                                gtype = args.gnn_type,
-                                back_dense=args.back_dense,
-                                dual_gcn = False,
-                                num_time_steps = args.timesteps,
-                                vertices = input_dim,
-                                none_op_ind = none_op_ind,
-                                input_zcp = False,
-                                gcn_out_dims = args.forward_gcn_out_dims,
-                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                backward_gcn_out_dims = args.backward_gcn_out_dims,
-                                fb_conversion_dims = args.fb_conversion_dims,
-                                bmlp_ally = args.bmlp_ally,
-                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                residual=args.residual,
-                                separate_op_fp = args.separate_op_fp,
-                                unroll_fgcn = args.unroll_fgcn,
-                                detach_mode = args.detach_mode,
-                                back_mlp = args.back_mlp,
-                                back_opemb = args.back_opemb,
-                                back_y_info = args.back_y_info,
-                                ensemble_fuse_method = args.ensemble_fuse_method,
-                                randopupdate = args.randopupdate,
-                                opemb_direct = args.opemb_direct,
-                                unique_attention_projection=args.unique_attention_projection,
-                                opattention=args.opattention,
-                                back_opemb_only = args.back_opemb_only,
-                                leakyrelu=args.leakyrelu,
-                                attention_rescale=args.attention_rescale)
-            else:
-                model = GIN_Model(device=args.cpu_gpu_device,
-                                gtype = args.gnn_type,
-                                back_dense=args.back_dense,
-                                dual_gcn = True,
-                                num_time_steps = args.timesteps,
-                                vertices = input_dim,
-                                none_op_ind = none_op_ind,
-                                unroll_fgcn = args.unroll_fgcn,
-                                input_zcp = False,
-                                separate_op_fp = args.separate_op_fp,
-                                gcn_out_dims = args.forward_gcn_out_dims,
-                                backward_gcn_out_dims = args.backward_gcn_out_dims,
-                                bmlp_ally = args.bmlp_ally,
-                                fb_conversion_dims = args.fb_conversion_dims,
-                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                detach_mode = args.detach_mode,
-                                residual=args.residual,
-                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                back_mlp = args.back_mlp,
-                                opemb_direct = args.opemb_direct,
-                                back_opemb = args.back_opemb,
-                                back_y_info = args.back_y_info,
-                                randopupdate = args.randopupdate,
-                                ensemble_fuse_method = args.ensemble_fuse_method,
-                                unique_attention_projection=args.unique_attention_projection,
-                                opattention=args.opattention,
-                                back_opemb_only = args.back_opemb_only,
-                                leakyrelu=args.leakyrelu,
-                                attention_rescale=args.attention_rescale)
-        elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
-            input_dim = next(iter(train_dataloader))[0][1].shape[1]
-            num_zcps = next(iter(train_dataloader))[0][-2].shape[1]
-            none_op_ind = 130 # placeholder
-            if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(device=args.cpu_gpu_device,
-                                gtype = args.gnn_type,
-                                back_dense=args.back_dense,
-                                dual_gcn = False,
-                                num_time_steps = args.timesteps,
-                                num_zcps = num_zcps,
-                                separate_op_fp = args.separate_op_fp,
-                                unroll_fgcn = args.unroll_fgcn,
-                                vertices = input_dim,
-                                none_op_ind = none_op_ind,
-                                detach_mode = args.detach_mode,
-                                input_zcp = True,
-                                gcn_out_dims = args.forward_gcn_out_dims,
-                                bmlp_ally = args.bmlp_ally,
-                                backward_gcn_out_dims = args.backward_gcn_out_dims,
-                                fb_conversion_dims = args.fb_conversion_dims,
-                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                residual=args.residual,
-                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                back_mlp = args.back_mlp,
-                                opemb_direct = args.opemb_direct,
-                                back_opemb = args.back_opemb,
-                                randopupdate = args.randopupdate,
-                                back_y_info = args.back_y_info,
-                                ensemble_fuse_method = args.ensemble_fuse_method,
-                                unique_attention_projection=args.unique_attention_projection,
-                                opattention=args.opattention,
-                                back_opemb_only = args.back_opemb_only,
-                                leakyrelu=args.leakyrelu,
-                                attention_rescale=args.attention_rescale)
-            else:
-                model = GIN_Model(device=args.cpu_gpu_device,
-                                gtype = args.gnn_type,
-                                back_dense=args.back_dense,
-                                dual_gcn = True,
-                                num_time_steps = args.timesteps,
-                                num_zcps = num_zcps,
-                                vertices = input_dim,
-                                none_op_ind = none_op_ind,
-                                separate_op_fp = args.separate_op_fp,
-                                detach_mode = args.detach_mode,
-                                input_zcp = True,
-                                gcn_out_dims = args.forward_gcn_out_dims,
-                                backward_gcn_out_dims = args.backward_gcn_out_dims,
-                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                bmlp_ally = args.bmlp_ally,
-                                fb_conversion_dims = args.fb_conversion_dims,
-                                residual=args.residual,
-                                unroll_fgcn = args.unroll_fgcn,
-                                back_mlp = args.back_mlp,
-                                randopupdate = args.randopupdate,
-                                opemb_direct = args.opemb_direct,
-                                back_opemb = args.back_opemb,
-                                back_y_info = args.back_y_info,
-                                ensemble_fuse_method = args.ensemble_fuse_method,
-                                unique_attention_projection=args.unique_attention_projection,
-                                opattention=args.opattention,
-                                back_opemb_only = args.back_opemb_only,
-                                leakyrelu=args.leakyrelu,
-                                attention_rescale=args.attention_rescale)
-        elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
-            representation_size = next(iter(train_dataloader))[0].shape[1]
-            model = FullyConnectedNN(layer_sizes = [representation_size] + [200] * 3 + [1]).to(args.cpu_gpu_device)
-        
-        model.to(args.cpu_gpu_device)
-        criterion = torch.nn.MSELoss()
-        params_optimize = list(model.parameters())
-        optimizer = torch.optim.AdamW(params_optimize, lr = args.lr, weight_decay = args.weight_decay)
-        scheduler = CosineAnnealingLR(optimizer, T_max = args.epochs, eta_min = args.eta_min)
-        kdt_l5, spr_l5 = [], []
-        for epoch in range(args.epochs):
-            start_time = time.time()
-            if args.loss_type == "mse":
-                raise NotImplementedError
-                # model, mse_loss, spr, kdt = train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader, epoch)
-            elif args.loss_type == "pwl":
-                if epoch > args.epochs - 5:
-                    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader, epoch)
-                else:
-                    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader_lowbs, epoch)
-            else:
-                raise NotImplementedError
-            # test_loss, num_test_items, test_spearmanr, test_kendalltau = test(args, model, test_dataloader, criterion)
-            end_time = time.time()
-            if epoch > args.epochs - 5:
-                kdt_l5.append(kdt)
-                spr_l5.append(spr)
-                print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
-            else:
-                print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
-        samp_eff[sample_count] = (sum(spr_l5)/len(spr_l5), sum(kdt_l5)/len(kdt_l5))
-        print("Sample Count: {}, Spearman: {}, Kendall: {}".format(sample_count, sum(spr_l5)/len(spr_l5), sum(kdt_l5)/len(kdt_l5)))
-        pprint(samp_eff)
-        across_trials[sample_count].append(samp_eff[sample_count])
+            dual_gcn = args.space not in ["nb101", "nb201", "nb301", "tb101"]
+            input_zcp = False
+            model = create_gin_model(input_dim, 13, dual_gcn, input_zcp, args)
 
-pr_kdt = {}
-pr_spr = {}
-# print average across trials for each sample count
-for sample_count in sample_counts:
-    print("Average KDT: ", sum([across_trials[sample_count][i][1] for i in range(len(across_trials[sample_count]))])/len(across_trials[sample_count]))
-    # Print variance of KDT across tests
-    print("Variance KDT: ", np.var([across_trials[sample_count][i][1] for i in range(len(across_trials[sample_count]))]))
-    # print SPR
-    print("Average SPR: ", sum([across_trials[sample_count][i][0] for i in range(len(across_trials[sample_count]))])/len(across_trials[sample_count]))
-    # Print variance of SPR across tests
-    print("Variance SPR: ", np.var([across_trials[sample_count][i][0] for i in range(len(across_trials[sample_count]))]))
-    print("Per Run KDT", [across_trials[sample_count][i][1] for i in range(len(across_trials[sample_count]))])
-    print("Per Run SPR", [across_trials[sample_count][i][0] for i in range(len(across_trials[sample_count]))])
-    pr_kdt[sample_count] = [across_trials[sample_count][i][1] for i in range(len(across_trials[sample_count]))]
-    pr_spr[sample_count] = [across_trials[sample_count][i][0] for i in range(len(across_trials[sample_count]))]
+        elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
+            num_zcps = next(iter(train_dataloader))[0][-2].shape[1]
+            dual_gcn = args.space not in ["nb101", "nb201", "nb301", "tb101"]
+            input_zcp = True,
+            model = create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args)
+
+        elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+            model = FullyConnectedNN(layer_sizes=[input_dim] + [200] * 3 + [1]).to(args.cpu_gpu_device)
+        # Train on the train data-loader (pwl_train)
+        model.to(args.cpu_gpu_device)
+        params_optimize = list(model.parameters())
+        optimizer = torch.optim.AdamW(params_optimize, lr=args.lr, weight_decay=args.weight_decay)
+        scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.eta_min)
+        pt_kdt_l5, pt_spr_l5 = [], []
+        for epoch in range(args.epochs):
+            if epoch > args.epochs - 5:
+                model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader, epoch)
+                pt_kdt_l5.append(kdt)
+                pt_spr_l5.append(spr)
+                print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+            else:
+                model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloaderlowbs, epoch)
+                print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+
+        # Save the trained network state_dict
+        trained_state_dict = model.state_dict()
+        for tfdevice in target_devices:
+            if tfdevice not in results_dict:
+                results_dict[tfdevice] = {}
+            for transfer_count in transfer_sample_counts:
+                if sample_count not in results_dict[tfdevice]:
+                    results_dict[tfdevice][sample_count] = {}
+                if transfer_count not in results_dict[tfdevice][sample_count]:
+                    results_dict[tfdevice][sample_count][transfer_count] = {'kdt': [], 'spr': []}
+
+                # Reload the trained network state_dict
+                model.load_state_dict(trained_state_dict)
+                # Create a transfer data-loader with 'transfer_count' samples of each 'target_device'
+                transfer_samps = get_distinct_index(args, embedding_gen, args.space, transfer_count, args.sampling_metric, tfdevice)
+                test_samples = list(set(range(total_samples - 1)) - set(transfer_samps))
+                transfer_dataloader, transfer_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=transfer_samps, devices=[tfdevice])
+                transfer_test_dataloader, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=[tfdevice])
+                transfer_test_dataloaderlowbs, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:80], devices=[tfdevice])
+                # Train on the transfer data-loader (pwl_train)
+                model.to(args.cpu_gpu_device)
+                params_optimize = list(model.parameters())
+                optimizer = torch.optim.AdamW(params_optimize, lr=args.transfer_lr, weight_decay=args.weight_decay)
+                scheduler = CosineAnnealingLR(optimizer, T_max=args.transfer_epochs, eta_min=args.eta_min)
+                tt_kdt_l5, tt_spr_l5 = [], []
+                for epoch in range(args.transfer_epochs):
+                    if epoch > args.transfer_epochs - 5:
+                        start_time = time.time()
+                        model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, transfer_dataloader, criterion, optimizer, scheduler, transfer_test_dataloader, epoch)
+                        tt_kdt_l5.append(kdt)
+                        tt_spr_l5.append(spr)
+                        end_time = time.time()
+                        print(f'Epoch {epoch + 1}/{args.transfer_epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+                    else:
+                        start_time = time.time()
+                        model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, transfer_dataloader, criterion, optimizer, scheduler, transfer_test_dataloaderlowbs, epoch)
+                        end_time = time.time()
+                        print(f'Epoch {epoch + 1}/{args.transfer_epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+                results_dict[tfdevice][sample_count][transfer_count]['kdt'].append(sum(tt_kdt_l5)/len(tt_kdt_l5))
+                results_dict[tfdevice][sample_count][transfer_count]['spr'].append(sum(tt_spr_l5)/len(tt_spr_l5))
+                print("Device: {}, Sample Count: {}, Transfer Count: {}, Spearman: {}, Kendall: {}".format(tfdevice, sample_count, transfer_count, sum(tt_spr_l5)/len(tt_spr_l5), sum(tt_kdt_l5)/len(tt_kdt_l5)))
+
 
 import random
 import pickle
-pr_all = {"spr": pr_spr, "kdt": pr_kdt}
 uid = random.randint(0, 1000000000)
 # check if truecorrs exists
 if not os.path.exists('truecorrs'):
@@ -620,76 +502,61 @@ if not os.path.exists('truecorrs'):
 while os.path.exists('truecorrs/{}/{}.pkl'.format(args.name_desc, uid)):
     uid = random.randint(0, 1000000000)
 
-# Save pr_all as a pickle file in a folder called "truecorrs"
+# Save results_dict as a pickle file in a folder called "truecorrs"
 if not os.path.exists('truecorrs/{}'.format(args.name_desc)):
     os.makedirs('truecorrs/{}'.format(args.name_desc))
 with open('truecorrs/{}/{}.pkl'.format(args.name_desc, uid), 'wb') as f:
-    pickle.dump(pr_all, f, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 # Now load it
 # with open('truecorrs/{}/{}.pkl'.format(args.name_desc, uid), 'rb') as f:
-#     pr_all = pickle.load(f)
-# sample_count = sample_counts[-1]
-record_ = {}
-for sample_count in sample_counts:
-    avkdt = str(sum([across_trials[sample_count][i][1] for i in range(len(across_trials[sample_count]))])/len(across_trials[sample_count]))
-    kdt_std = str(np.var([across_trials[sample_count][i][1] for i in range(len(across_trials[sample_count]))]))
-    avspr = str(sum([across_trials[sample_count][i][0] for i in range(len(across_trials[sample_count]))])/len(across_trials[sample_count]))
-    spr_std = str(np.var([across_trials[sample_count][i][0] for i in range(len(across_trials[sample_count]))]))
-    record_[sample_count] = [avkdt, kdt_std, avspr, spr_std]
+#     results_dict = pickle.load(f)
+
+
 
 if not os.path.exists('correlation_results/{}'.format(args.name_desc)):
     os.makedirs('correlation_results/{}'.format(args.name_desc))
 
 filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 
-header = "uid,name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,opfpgcn,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,detach_mode,opemb_direct,unroll_fgcn,bmlp_ally,separate_op_fp,device,spr,kdt,spr_std,kdt_std"
+header = "uid,name_desc,seed,space,source_devices,sampling_metric,metric_device,target_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
+opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
-
+# results_dict[tfdevice][sample_count][transfer_count]['spr'].append(sum(tt_spr_l5)/len(tt_spr_l5))
+source_device_str = "|".join(args.source_devices)
+# sample_sizes_l = "|".join(args.sample_sizes)
 with open(filename, 'a') as f:
-    for key in samp_eff.keys():
-        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
-                (   
+    for sample_size in args.sample_sizes:
+        for transfer_sample_size in args.transfer_sample_sizes:
+            for target_device in args.target_devices:
+                vals = [
                     str(uid),
                     str(args.name_desc),
                     str(args.seed),
-                    str(args.batch_size),
-                    str(args.epochs),
                     str(args.space),
-                    str(args.task),
+                    str(source_device_str),
+                    str(args.sampling_metric),
+                    str(args.metric_device),
+                    str(target_device),
+                    str(sample_size),
+                    str(transfer_sample_size),
                     str(args.representation),
-                    str(args.timesteps),
-                    str(args.loss_type),
-                    str(args.test_tagates),
                     str(args.gnn_type),
-                    str(args.back_dense),
-                    str(key),
-                    str(args.residual),
-                    str(args.leakyrelu),
-                    str(args.unique_attention_projection),
-                    str(args.opattention),
-                    str(args.attention_rescale),
-                    str('_'.join([str(x) for x in args.op_fp_gcn_out_dims])),
-                    str('_'.join([str(x) for x in args.forward_gcn_out_dims])),
-                    str('_'.join([str(x) for x in args.backward_gcn_out_dims])),
-                    str(args.back_mlp),
-                    str('_'.join([str(x) for x in args.replace_bgcn_mlp_dims])),
-                    str('_'.join([str(x) for x in args.fb_conversion_dims])),
-                    str(args.back_y_info),
-                    str(args.back_opemb),
+                    str(args.num_trials),
+                    str(args.op_fp_gcn_out_dims),
+                    str(args.forward_gcn_out_dims),
+                    str(args.replace_bgcn_mlp_dims),
                     str(args.ensemble_fuse_method),
-                    str(args.back_opemb_only),
-                    str(args.randopupdate),
-                    str(args.detach_mode),
-                    str(args.opemb_direct),
-                    str(args.unroll_fgcn),
-                    str(args.bmlp_ally),
-                    str(args.separate_op_fp),
-                    str(args.source_device),
-                    str(record_[key][2]),
-                    str(record_[key][0]),
-                    str(record_[key][3]),
-                    str(record_[key][1])
-                )
-        )
+                    str(args.fb_conversion_dims),
+                    str(args.lr),
+                    str(args.weight_decay),
+                    str(args.epochs),
+                    str(args.transfer_epochs),
+                    str(args.cpu_gpu_device), # use results_dict[tfdevice][sample_count][transfer_count]['spr'].append(sum(tt_spr_l5)/len(tt_spr_l5))
+                    str(np.mean(results_dict[target_device][sample_size][transfer_sample_size]['spr'])),
+                    str(np.mean(results_dict[target_device][sample_size][transfer_sample_size]['kdt'])),
+                    str(np.std(results_dict[target_device][sample_size][transfer_sample_size]['spr'])),
+                    str(np.std(results_dict[target_device][sample_size][transfer_sample_size]['kdt']))
+                    ]
+                f.write("%s\n" % ','.join(vals))

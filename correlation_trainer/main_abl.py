@@ -408,8 +408,8 @@ for tr_ in range(args.num_trials):
             input_dim = next(iter(train_dataloader))[0][1].shape[1]
             none_op_ind = 130 # placeholder
             if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
+                model = GIN_Model(  self.device = args.source_device
+                                    cpu_gpu_device=args.cpu_gpu_device,
                                     dual_gcn = False,
                                     num_zcps = 13,
                                     vertices = input_dim,
@@ -430,8 +430,8 @@ for tr_ in range(args.num_trials):
                                     gtype = args.gnn_type
                             )
             else:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
+                model = GIN_Model(  self.device = args.source_device
+                                    cpu_gpu_device=args.cpu_gpu_device,
                                     dual_gcn = True,
                                     num_zcps = 13,
                                     vertices = input_dim,
@@ -456,8 +456,8 @@ for tr_ in range(args.num_trials):
             num_zcps = next(iter(train_dataloader))[0][-2].shape[1]
             none_op_ind = 130 # placeholder
             if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
+                model = GIN_Model(  self.device = args.source_device
+                                    cpu_gpu_device=args.cpu_gpu_device,
                                     dual_gcn = False,
                                     num_zcps = num_zcps,
                                     vertices = input_dim,
@@ -478,8 +478,8 @@ for tr_ in range(args.num_trials):
                                     gtype = args.gnn_type
                             )
             else:
-                model = GIN_ModelGIN_Model(
-                                    device=args.cpu_gpu_device,
+                model = GIN_Model(  self.device = args.source_device
+                                    cpu_gpu_device=args.cpu_gpu_device,
                                     dual_gcn = True,
                                     num_zcps = num_zcps,
                                     vertices = input_dim,

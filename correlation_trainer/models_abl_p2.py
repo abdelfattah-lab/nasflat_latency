@@ -187,7 +187,8 @@ class MultiHeadGraphAttentionLayer(nn.Module):
 class GIN_Model(nn.Module):
     def __init__(
             self,
-            device='cpu',
+            device=None
+            cpu_gpu_device='cpu',
             dual_gcn = False,
             num_zcps = 13,
             vertices = 7,
@@ -219,6 +220,7 @@ class GIN_Model(nn.Module):
         self.wd_repr_dims = 8
         self.dinp = 2
         self.device = device
+        self.cpu_gpu_device = cpu_gpu_device
         self.dual_gcn = dual_gcn
         self.num_zcps = num_zcps
         self.vertices = vertices
@@ -282,8 +284,20 @@ class GIN_Model(nn.Module):
             torch.zeros(1, self.op_embedding_dim),
             requires_grad = False
         )
-        self.op_emb = nn.Embedding(128, self.op_embedding_dim)
+        self.input_hw_emb = nn.Parameter(
+            torch.zeros(1, self.op_embedding_dim),
+            requires_grad = False
+        )
+        if self.device != None:
+            self.op_emb = nn.Embedding(128, self.op_embedding_dim//2)
+            self.hw_emb = nn.Embedding(128, self.op_embedding_dim//2)
+        else:
+            self.op_emb = nn.Embedding(128, self.op_embedding_dim)
+            self.hw_emb = nn.Embedding(128, self.op_embedding_dim)
+        # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
+        # I think it is implicitly captured by concatenating the op_emb and hw_emb
         self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
+        self.output_hw_emb = nn.Embedding(1, self.op_embedding_dim)
         self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
         # gcn
         self.gcns = []
@@ -300,20 +314,19 @@ class GIN_Model(nn.Module):
         self.num_gcn_layers = len(self.gcns)
         self.out_dim = in_dim
 
-        if self.separate_op_fp:
-            # separate operator forward pass for update
-            self.op_f_gcns = []
-            in_dim = self.hid_dim
-            for dim in self.op_fp_gcn_out_dims:
-                self.op_f_gcns.append(
-                    LayerType(
-                        in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
-                        # potential issue
-                    )
+        # separate operator forward pass for update
+        self.op_f_gcns = []
+        in_dim = self.hid_dim
+        for dim in self.op_fp_gcn_out_dims:
+            self.op_f_gcns.append(
+                LayerType(
+                    in_dim, dim, self.op_embedding_dim, self.residual, self.unique_attn_proj, self.opattention, self.leakyrelu, self.attention_rescale, self.ensemble_fuse_method
+                    # potential issue
                 )
-                in_dim = dim
-            self.op_f_gcns = nn.ModuleList(self.op_f_gcns)
-            self.num_op_fp_gcn_layers = len(self.op_f_gcns)
+            )
+            in_dim = dim
+        self.op_f_gcns = nn.ModuleList(self.op_f_gcns)
+        self.num_op_fp_gcn_layers = len(self.op_f_gcns)
 
         # zcp
         self.zcp_embedder = []
@@ -398,7 +411,7 @@ class GIN_Model(nn.Module):
     def _prepare_architecture(self, x_adj, x_ops):
         archs = [[np.asarray(x.cpu()) for x in x_adj], [np.asarray(x.cpu()) for x in x_ops]]
         adjs, x, op_emb, op_inds = self.embed_and_transform_arch(archs)
-        return adjs.to(self.device), x.to(self.device), op_emb.to(self.device), op_inds.to(self.device)
+        return adjs.to(self.cpu_gpu_device), x.to(self.cpu_gpu_device), op_emb.to(self.cpu_gpu_device), op_inds.to(self.cpu_gpu_device)
 
     def _ensure_2d(self, tensor):
         if len(tensor.shape) == 1:
@@ -456,36 +469,50 @@ class GIN_Model(nn.Module):
         y = torch.mean(y, dim = 1)
         return y
 
-    def _process_architecture(self, x, adjs, op_emb, op_inds):
-        # Here, we use the last node output and the embedding itself, to re-represent the embedding.
-        # and then do another forward pass with the new embedding.
-        # this is essentially doing a double forward pass? 
-        # Can we create a 'new' forward net, which is separate from the main forward net, just to process the opemb?
-        if self.separate_op_fp:
-            op_emb = self._forward_op_pass(x, adjs, op_emb) # Use a separate network? 
-            op_emb = self.updateop_embedder(op_emb)
-            y = self._forward_pass(x, adjs, op_emb)
-            return self._final_process(y, op_inds)
-        else:
-            y = self._forward_pass(x, adjs, op_emb)
-            jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
-            in_embedding = torch.cat((op_emb, jlz), dim=-1)
-            op_emb = self.updateop_embedder(in_embedding)
-            y = self._forward_pass(x, adjs, op_emb)
-            return self._final_process(y, op_inds)
+    def _concat_hw_embs(self, b_size, hw_embs, dual=False):
+        base = [
+            self.input_hw_emb.unsqueeze(0).repeat([b_size, 1, 1]),
+            hw_embs,
+            self.output_hw_emb.weight.unsqueeze(0).repeat([b_size, 1, 1])
+        ]
+        if dual:
+            base.insert(1, self.input_hw_emb.unsqueeze(0).repeat([b_size, 1, 1]))
+        return torch.cat(base, dim=1)
 
+    def embed_hw(self, hw_inds):
+        hw_embs = self.hw_emb(hw_inds)
+        if self.dual_input:
+            hw_embs = hw_embs[:, self.dinp:-1, :]
+            hw_inds = hw_inds[:, self.dinp:-1]
+            hw_embs = self._concat_hw_embs(b_size, hw_embs, dual=True)
+        else:
+            hw_embs = hw_embs[:, 1:-1, :]
+            hw_inds = hw_inds[:, 1:-1]
+            hw_embs = self._concat_hw_embs(b_size, hw_embs)
+        return hw_embs
+
+    def _process_architecture(self, x, adjs, op_emb, op_inds, hw_inds=None):
+        # Here, if device != None, concatenate per-vertex embedding with hw_emb_tab and hw_inds to op_emb
+        if self.device != None:
+            hw_embs = self.embed_hw(hw_inds)
+            op_emb = torch.cat((op_emb, hw_embs), dim=-1) ## TODO[emb_tab currently half if device != None]
+        op_emb = self._forward_op_pass(x, adjs, op_emb)
+        op_emb = self.updateop_embedder(op_emb)
+        y = self._forward_pass(x, adjs, op_emb)
+        return self._final_process(y, op_inds)
+        
     def _concat_embedded_input(self, main_tensor, input_tensor, embedder):
-        input_tensor = embedder(input_tensor.to(self.device))
+        input_tensor = embedder(input_tensor.to(self.cpu_gpu_device))
         input_tensor, main_tensor = self._ensure_2d(input_tensor), self._ensure_2d(main_tensor)
         return torch.cat((main_tensor, input_tensor), dim=-1)
 
-    def forward(self, x_ops_1=None, x_adj_1=None, x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=None):
+    def forward(self, x_ops_1=None, x_adj_1=None, x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=None, hw_inds=None):
         adjs_1, x_1, op_emb_1, op_inds_1 = self._prepare_architecture(x_adj_1, x_ops_1)
-        y_1 = self._process_architecture(x_1, adjs_1, op_emb_1, op_inds_1)
+        y_1 = self._process_architecture(x_1, adjs_1, op_emb_1, op_inds_1, hw_inds=hw_inds)
         
         if self.dual_gcn:
             adjs_2, x_2, op_emb_2, op_inds_2 = self._prepare_architecture(x_adj_2, x_ops_2)
-            y_2 = self._process_architecture(x_2, adjs_2, op_emb_2, op_inds_2)
+            y_2 = self._process_architecture(x_2, adjs_2, op_emb_2, op_inds_2, hw_inds=hw_inds)
             y_1 = self.y_combiner(torch.cat((y_1, y_2), dim=-1))
         
         y_1 = y_1.squeeze()
