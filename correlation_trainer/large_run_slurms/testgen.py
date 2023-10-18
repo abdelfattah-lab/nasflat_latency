@@ -72,7 +72,7 @@ if False:
             command += ' --back_y_info'
         print(command)
 # True,opRptb,True,30000,4,python main_abl.py --seed 42 --name_desc opRptb --sample_sizes 64 128 --batch_size 8 --space nb101 --timesteps 2 --representation adj_gin --gnn_type dense --forward_gcn_out_dims 128 128 128 --backward_gcn_out_dims 128 128 128 --replace_bgcn_mlp_dims 128 128 128 --num_trials 5  --ensemble_fuse_method add --randopupdate
-if True:
+if False:
     import itertools
     timesteps = [2]
     back_mlp = [True]
@@ -96,4 +96,24 @@ if True:
         if back_y_info: 
             command += ' --back_y_info'
         command += ' --detach_mode %s' % (detach_mode,)
+        print(command)
+
+if True:
+    import itertools
+    # devices = ['1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
+    #                'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
+    #                'fpga', 'gold_6226', 'gold_6240', 'mobile_cpu_snapdragon_450_cortex_a53_int8', 'mobile_cpu_snapdragon_675_kryo_460_int8', 'mobile_cpu_snapdragon_855_kryo_485_int8', \
+    #                'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_450_adreno_506_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', \
+    #                'mobile_gpu_snapdragon_855_adreno_640_int8', 'nwot_nb201_cifar10', 'params_nb201_cifar10', 'pixel2', 'pixel3', 'raspi4', 'samsung_a50', 'samsung_s7', 'silver_4114', \
+    #                'silver_4210r', 'titan_rtx_1', 'titan_rtx_256', 'titan_rtx_32', 'titanx_1', 'titanx_256', 'titanx_32', 'titanxp_1', 'titanxp_256', 'titanxp_32']
+    devices = ['titan_rtx_256', 'gold_6226', 'pixel2', 'raspi4', 'eyeriss', 'fpga']
+    representations = [ 'adj_mlp', 'zcp', 'cate', 'arch2vec', 'adj_gin', 'adj_gin_zcp', 'adj_gin_cate', 'adj_gin_arch2vec']
+    configurations = list(itertools.product(devices, representations))
+    base_command = (
+        'True,lat_{idx},True,30000,4,python main_abl.py --seed 42 --name_desc lattest --sample_sizes 4 8 12 16 24 32 64 128 '
+        '--batch_size 8 --space nb201 --representation {repr_} --gnn_type dense --separate_op_fp --device {dev_} --num_trials 5'
+    )
+    for idx, config in enumerate(configurations):
+        dev_, repr_ = config
+        command = base_command.format(idx=idx, dev_=dev_, repr_=repr_)
         print(command)

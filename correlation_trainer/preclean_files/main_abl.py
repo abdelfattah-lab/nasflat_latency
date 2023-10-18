@@ -41,15 +41,33 @@ parser.add_argument('--device', type=str, default=None)            # '1080ti_1',
                                                                    #            So, use an embedding for each operation. (e.g. 5 ops, 5 embeddings per device) and concatenate appropriately.
 parser.add_argument('--task', type=str, default='class_scene')     # all tb101 tasks supported
 parser.add_argument('--representation', type=str, default='cate')  # adj_mlp, adj_gin, zcp (except nb301), cate, arch2vec, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate supported. # adj_gin_org
+parser.add_argument('--test_tagates', action='store_true')         # Currently only supports testing on NB101 networks. Easy to extend.
 parser.add_argument('--loss_type', type=str, default='pwl')        # mse, pwl supported
 parser.add_argument('--gnn_type', type=str, default='dense')       # dense, gat, gat_mh supported
+parser.add_argument('--back_dense', action="store_true")           # If True, backward flow will be DenseFlow
 parser.add_argument('--num_trials', type=int, default=3)
 parser.add_argument('--op_fp_gcn_out_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
 parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128])
-parser.add_argument('--ensemble_fuse_method', type=str, default='add')               # add, mlp (Need to test)  # <DEPRECATED, HARDCODED>
+parser.add_argument('--separate_op_fp', action="store_true")        # True it seems                          # <TEST NOW>
+parser.add_argument('--no_residual', action="store_true")                                                    # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_mlp', action="store_true")              # True for best result                   # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_opemb', action="store_true")            # True for best result                   # <DEPRECATED, HARDCODED>
+parser.add_argument('--randopupdate', action="store_true")          # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_opemb_only', action="store_true")       # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--opemb_direct', action="store_true")          # True for best result (5/8 improvement) # <DEPRECATED, HARDCODED>
+parser.add_argument('--bmlp_ally', action="store_true")             # 27 False, 13 True (False best result)  # <DEPRECATED, HARDCODED>
+parser.add_argument('--unroll_fgcn', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_y_info', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--ensemble_fuse_method', type=str, default='add')   # add, mlp (Need to test)           # <DEPRECATED, HARDCODED>
+parser.add_argument('--detach_mode', type=str, default='default')   # default for best result, using none    # <DEPRECATED, HARDCODED>
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
+parser.add_argument('--no_leakyrelu', action="store_true")
+parser.add_argument('--no_unique_attention_projection', action="store_true")
+parser.add_argument('--no_opattention', action="store_true")
+parser.add_argument('--no_attention_rescale', action="store_true")
+parser.add_argument('--timesteps', type=int, default=2)
 ###################################################### Other Hyper-Parameters ######################################################
 parser.add_argument('--name_desc', type=str, default=None)
 parser.add_argument('--sample_sizes', nargs='+', type=int, default=[72, 364, 728, 3645, 7280]) # Default NB101
@@ -79,6 +97,11 @@ if args.device is not None:
     args.space = 'nb201'
 sample_tests = {}
 sample_tests[args.space] = args.sample_sizes
+args.residual = not args.no_residual
+args.unique_attention_projection = not args.no_unique_attention_projection
+args.opattention = not args.no_opattention
+args.leakyrelu = not args.no_leakyrelu
+args.attention_rescale = not args.no_attention_rescale
 
 assert args.name_desc is not None, "Please provide a name description for the experiment."
 
@@ -408,97 +431,130 @@ for tr_ in range(args.num_trials):
             input_dim = next(iter(train_dataloader))[0][1].shape[1]
             none_op_ind = 130 # placeholder
             if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = False,
-                                    num_zcps = 13,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = False,
+                                num_time_steps = args.timesteps,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                input_zcp = False,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                residual=args.residual,
+                                separate_op_fp = args.separate_op_fp,
+                                unroll_fgcn = args.unroll_fgcn,
+                                detach_mode = args.detach_mode,
+                                back_mlp = args.back_mlp,
+                                back_opemb = args.back_opemb,
+                                back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                randopupdate = args.randopupdate,
+                                opemb_direct = args.opemb_direct,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
             else:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = True,
-                                    num_zcps = 13,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = True,
+                                num_time_steps = args.timesteps,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                unroll_fgcn = args.unroll_fgcn,
+                                input_zcp = False,
+                                separate_op_fp = args.separate_op_fp,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                detach_mode = args.detach_mode,
+                                residual=args.residual,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                back_mlp = args.back_mlp,
+                                opemb_direct = args.opemb_direct,
+                                back_opemb = args.back_opemb,
+                                back_y_info = args.back_y_info,
+                                randopupdate = args.randopupdate,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
         elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
             input_dim = next(iter(train_dataloader))[0][1].shape[1]
             num_zcps = next(iter(train_dataloader))[0][-2].shape[1]
             none_op_ind = 130 # placeholder
             if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = False,
-                                    num_zcps = num_zcps,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = False,
+                                num_time_steps = args.timesteps,
+                                num_zcps = num_zcps,
+                                separate_op_fp = args.separate_op_fp,
+                                unroll_fgcn = args.unroll_fgcn,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                detach_mode = args.detach_mode,
+                                input_zcp = True,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                residual=args.residual,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                back_mlp = args.back_mlp,
+                                opemb_direct = args.opemb_direct,
+                                back_opemb = args.back_opemb,
+                                randopupdate = args.randopupdate,
+                                back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
             else:
-                model = GIN_ModelGIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = True,
-                                    num_zcps = num_zcps,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = True,
+                                num_time_steps = args.timesteps,
+                                num_zcps = num_zcps,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                separate_op_fp = args.separate_op_fp,
+                                detach_mode = args.detach_mode,
+                                input_zcp = True,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                residual=args.residual,
+                                unroll_fgcn = args.unroll_fgcn,
+                                back_mlp = args.back_mlp,
+                                randopupdate = args.randopupdate,
+                                opemb_direct = args.opemb_direct,
+                                back_opemb = args.back_opemb,
+                                back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
         elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
             representation_size = next(iter(train_dataloader))[0].shape[1]
             model = FullyConnectedNN(layer_sizes = [representation_size] + [200] * 3 + [1]).to(args.cpu_gpu_device)
@@ -583,14 +639,16 @@ if not os.path.exists('correlation_results/{}'.format(args.name_desc)):
 
 filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 
-header = "uid,name_desc,seed,batch_size,epochs,space,task,representation,loss_type,gnn_type,key,op_fp_gcn_out_dims,forward_gcn_out_dims,backward_gcn_out_dims,replace_bgcn_mlp_dims,fb_conversion_dims,ensemble_fuse_method,device,spr,kdt,spr_std,kdt_std"
+header = "uid,name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,opfpgcn,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,detach_mode,opemb_direct,unroll_fgcn,bmlp_ally,separate_op_fp,device,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
 
 with open(filename, 'a') as f:
     for key in samp_eff.keys():
-        vals = [str(uid),
+        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
+                (   
+                    str(uid),
                     str(args.name_desc),
                     str(args.seed),
                     str(args.batch_size),
@@ -598,18 +656,37 @@ with open(filename, 'a') as f:
                     str(args.space),
                     str(args.task),
                     str(args.representation),
+                    str(args.timesteps),
                     str(args.loss_type),
+                    str(args.test_tagates),
                     str(args.gnn_type),
+                    str(args.back_dense),
                     str(key),
+                    str(args.residual),
+                    str(args.leakyrelu),
+                    str(args.unique_attention_projection),
+                    str(args.opattention),
+                    str(args.attention_rescale),
                     str('_'.join([str(x) for x in args.op_fp_gcn_out_dims])),
                     str('_'.join([str(x) for x in args.forward_gcn_out_dims])),
                     str('_'.join([str(x) for x in args.backward_gcn_out_dims])),
+                    str(args.back_mlp),
                     str('_'.join([str(x) for x in args.replace_bgcn_mlp_dims])),
                     str('_'.join([str(x) for x in args.fb_conversion_dims])),
+                    str(args.back_y_info),
+                    str(args.back_opemb),
                     str(args.ensemble_fuse_method),
+                    str(args.back_opemb_only),
+                    str(args.randopupdate),
+                    str(args.detach_mode),
+                    str(args.opemb_direct),
+                    str(args.unroll_fgcn),
+                    str(args.bmlp_ally),
+                    str(args.separate_op_fp),
                     str(args.device),
                     str(record_[key][2]),
                     str(record_[key][0]),
                     str(record_[key][3]),
-                    str(record_[key][1])]
-        f.write("%s\n" % ','.join(vals))
+                    str(record_[key][1])
+                )
+        )

@@ -102,7 +102,7 @@ class NASBench201:
         # Normalize each key in latency_data
         for k, v in latency_data.items():
             latency_data[k] = self.min_max_scaling(np.asarray(v)).tolist()
-
+        self.latency_data = latency_data
         self.zready = False
         self.zcp_cache = {}
         
@@ -233,7 +233,7 @@ class NASBench201:
             return val_acc
         
     def get_latency(self, idx, space=None, device="1080ti_1"):
-        return latency_data[device][idx]
+        return self.latency_data[device][idx]
 
     def get_arch2vec(self, idx, joint=None, space=None):
         return self.arch2vec_nb201[idx]['feature'].tolist()

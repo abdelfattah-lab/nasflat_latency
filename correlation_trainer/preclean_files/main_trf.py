@@ -20,7 +20,7 @@ sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
 parser = argparse.ArgumentParser()
 ####################################################### Search Space Choices #######################################################
 parser.add_argument('--space', type=str, default='Amoeba')         # nb101, nb201, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
-parser.add_argument('--device', type=str, default=None)            # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
+parser.add_argument('--source_device', type=str, default=None)            # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
                                                                    #    'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
                                                                    #    'fpga', 'gold_6226', 'gold_6240', 'mobile_cpu_snapdragon_450_cortex_a53_int8', 'mobile_cpu_snapdragon_675_kryo_460_int8', 'mobile_cpu_snapdragon_855_kryo_485_int8', \
                                                                    #    'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_450_adreno_506_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', \
@@ -39,17 +39,36 @@ parser.add_argument('--device', type=str, default=None)            # '1080ti_1',
                                                                    # For network sampling: use arch2vec, cate etc. [random, flops, params, arch2vec, cate, zcp, accuracy/latency (oracle)]
                                                                    # For device embedding, each operation may require a unique device embedding.
                                                                    #            So, use an embedding for each operation. (e.g. 5 ops, 5 embeddings per device) and concatenate appropriately.
+parser.add_argument('--target_device', type=str, default=None)     
 parser.add_argument('--task', type=str, default='class_scene')     # all tb101 tasks supported
 parser.add_argument('--representation', type=str, default='cate')  # adj_mlp, adj_gin, zcp (except nb301), cate, arch2vec, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate supported. # adj_gin_org
+parser.add_argument('--test_tagates', action='store_true')         # Currently only supports testing on NB101 networks. Easy to extend.
 parser.add_argument('--loss_type', type=str, default='pwl')        # mse, pwl supported
 parser.add_argument('--gnn_type', type=str, default='dense')       # dense, gat, gat_mh supported
+parser.add_argument('--back_dense', action="store_true")           # If True, backward flow will be DenseFlow
 parser.add_argument('--num_trials', type=int, default=3)
 parser.add_argument('--op_fp_gcn_out_dims', nargs='+', type=int, default=[128, 128])
 parser.add_argument('--forward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
 parser.add_argument('--backward_gcn_out_dims', nargs='+', type=int, default=[128, 128, 128])
 parser.add_argument('--replace_bgcn_mlp_dims', nargs='+', type=int, default=[128, 128, 128])
-parser.add_argument('--ensemble_fuse_method', type=str, default='add')               # add, mlp (Need to test)  # <DEPRECATED, HARDCODED>
+parser.add_argument('--separate_op_fp', action="store_true")        # True it seems                          # <TEST NOW>
+parser.add_argument('--no_residual', action="store_true")                                                    # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_mlp', action="store_true")              # True for best result                   # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_opemb', action="store_true")            # True for best result                   # <DEPRECATED, HARDCODED>
+parser.add_argument('--randopupdate', action="store_true")          # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_opemb_only', action="store_true")       # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--opemb_direct', action="store_true")          # True for best result (5/8 improvement) # <DEPRECATED, HARDCODED>
+parser.add_argument('--bmlp_ally', action="store_true")             # 27 False, 13 True (False best result)  # <DEPRECATED, HARDCODED>
+parser.add_argument('--unroll_fgcn', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--back_y_info', action="store_true")           # False for best result                  # <DEPRECATED, HARDCODED>
+parser.add_argument('--ensemble_fuse_method', type=str, default='add')   # add, mlp (Need to test)           # <DEPRECATED, HARDCODED>
+parser.add_argument('--detach_mode', type=str, default='default')   # default for best result, using none    # <DEPRECATED, HARDCODED>
 parser.add_argument('--fb_conversion_dims', nargs='+', type=int, default=[128, 128])
+parser.add_argument('--no_leakyrelu', action="store_true")
+parser.add_argument('--no_unique_attention_projection', action="store_true")
+parser.add_argument('--no_opattention', action="store_true")
+parser.add_argument('--no_attention_rescale', action="store_true")
+parser.add_argument('--timesteps', type=int, default=2)
 ###################################################### Other Hyper-Parameters ######################################################
 parser.add_argument('--name_desc', type=str, default=None)
 parser.add_argument('--sample_sizes', nargs='+', type=int, default=[72, 364, 728, 3645, 7280]) # Default NB101
@@ -68,17 +87,24 @@ parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--id', type=int, default=0)
 ####################################################################################################################################
 args = parser.parse_args()
-device = args.device
+device = args.source_device
 if args.representation.__contains__("adj_gin_org"):
     args.representation = args.representation.replace("adj_gin_org", "adj_gin")
     from models_abl import GIN_Model, FullyConnectedNN # Use original model with default set arguments
 else:
     from models_abl_p2 import GIN_Model, FullyConnectedNN
-
-if args.device is not None:
+if args.source_device is not None:
+    assert args.target_device is not None, "Please provide a target device for the experiment."
+    assert args.space == 'nb201', "Please provide a SS for the experiment."
+if args.source_device is not None:
     args.space = 'nb201'
 sample_tests = {}
 sample_tests[args.space] = args.sample_sizes
+args.residual = not args.no_residual
+args.unique_attention_projection = not args.no_unique_attention_projection
+args.opattention = not args.no_opattention
+args.leakyrelu = not args.no_leakyrelu
+args.attention_rescale = not args.no_attention_rescale
 
 assert args.name_desc is not None, "Please provide a name description for the experiment."
 
@@ -290,8 +316,8 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                     adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
                     norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
                     norm_w_d = np.asarray(norm_w_d).flatten()
-                    if args.device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     adj_mat_norm = np.asarray(adj_mat_norm).flatten()
                     adj_mat_red = np.asarray(adj_mat_red).flatten()
                     op_mat_norm = torch.Tensor(np.asarray(op_mat_norm)).argmax(dim=1).numpy().flatten() # Careful here.
@@ -300,11 +326,11 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                 else:
                     adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
                     if space == 'tb101':
-                        if args.device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     else:
-                        if args.device == None: accs.append(embedding_gen.get_valacc(i));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
+                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
                     norm_w_d = np.asarray(norm_w_d).flatten()
                     adj_mat = np.asarray(adj_mat).flatten()
@@ -319,14 +345,14 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                 else:
                     exec('representations.append(np.concatenate((embedding_gen.get_{}(i, "{}"), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten())))'.format(representation, space, space))
                 if space=='tb101':
-                    if args.device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                 elif space not in ['nb101', 'nb201', 'nb301']:
-                    if args.device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                 else:
-                    if args.device == None: accs.append(embedding_gen.get_valacc(i));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
+                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
         representations = torch.stack([torch.FloatTensor(nxx) for nxx in representations])
     else: # adj_gin, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate --> GIN_Model
         assert representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"], "Representation Not Supported!"
@@ -338,8 +364,8 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                     norm_w_d = np.asarray(norm_w_d).flatten()
                     op_mat_norm = torch.Tensor(np.array(op_mat_norm)).argmax(dim=1)
                     op_mat_red = torch.Tensor(np.array(op_mat_red)).argmax(dim=1)
-                    if args.device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     representations.append((torch.Tensor(adj_mat_norm), torch.Tensor(op_mat_norm), torch.Tensor(adj_mat_red), torch.Tensor(op_mat_red), torch.Tensor(norm_w_d)))
                 else:
                     adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
@@ -347,11 +373,11 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                     norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
                     norm_w_d = np.asarray(norm_w_d).flatten()
                     if space == 'tb101':
-                        if args.device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     else:
-                        if args.device == None: accs.append(embedding_gen.get_valacc(i));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
+                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     representations.append((torch.Tensor(adj_mat), torch.Tensor(op_mat), torch.Tensor(norm_w_d)))
         else: # "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate"
             for i in tqdm(sample_indexes):
@@ -364,8 +390,8 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                     norm_w_d = np.asarray(norm_w_d).flatten()
                     op_mat_norm = torch.Tensor(np.array(op_mat_norm)).argmax(dim=1)
                     op_mat_red = torch.Tensor(np.array(op_mat_red)).argmax(dim=1)
-                    if args.device == None: accs.append(embedding_gen.get_valacc(i, space=space));
-                    else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                    if args.source_device == None: accs.append(embedding_gen.get_valacc(i, space=space));
+                    else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     representations.append((torch.Tensor(adj_mat_norm), torch.Tensor(op_mat_norm), torch.Tensor(adj_mat_red), torch.Tensor(op_mat_red), torch.Tensor(zcp_), torch.Tensor(norm_w_d)))
                 else:
                     adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
@@ -379,11 +405,11 @@ def get_dataloader(args, embedding_gen, space, sample_count, representation, mod
                     norm_w_d = np.asarray(norm_w_d).flatten()
                     op_mat = torch.Tensor(np.array(op_mat)).argmax(dim=1)
                     if space == 'tb101':
-                        if args.device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
+                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     else:
-                        if args.device == None: accs.append(embedding_gen.get_valacc(i));
-                        else: accs.append(embedding_gen.get_latency(i, device=args.device, space=space))
+                        if args.source_device == None: accs.append(embedding_gen.get_valacc(i));
+                        else: accs.append(embedding_gen.get_latency(i, device=args.source_device, space=space))
                     representations.append((torch.Tensor(adj_mat), torch.LongTensor(op_mat), torch.Tensor(zcp_), torch.Tensor(norm_w_d)))
 
     dataset = CustomDataset(representations, accs)
@@ -408,97 +434,130 @@ for tr_ in range(args.num_trials):
             input_dim = next(iter(train_dataloader))[0][1].shape[1]
             none_op_ind = 130 # placeholder
             if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = False,
-                                    num_zcps = 13,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = False,
+                                num_time_steps = args.timesteps,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                input_zcp = False,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                residual=args.residual,
+                                separate_op_fp = args.separate_op_fp,
+                                unroll_fgcn = args.unroll_fgcn,
+                                detach_mode = args.detach_mode,
+                                back_mlp = args.back_mlp,
+                                back_opemb = args.back_opemb,
+                                back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                randopupdate = args.randopupdate,
+                                opemb_direct = args.opemb_direct,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
             else:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = True,
-                                    num_zcps = 13,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = True,
+                                num_time_steps = args.timesteps,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                unroll_fgcn = args.unroll_fgcn,
+                                input_zcp = False,
+                                separate_op_fp = args.separate_op_fp,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                detach_mode = args.detach_mode,
+                                residual=args.residual,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                back_mlp = args.back_mlp,
+                                opemb_direct = args.opemb_direct,
+                                back_opemb = args.back_opemb,
+                                back_y_info = args.back_y_info,
+                                randopupdate = args.randopupdate,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
         elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
             input_dim = next(iter(train_dataloader))[0][1].shape[1]
             num_zcps = next(iter(train_dataloader))[0][-2].shape[1]
             none_op_ind = 130 # placeholder
             if args.space in ["nb101", "nb201", "nb301", "tb101"]:
-                model = GIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = False,
-                                    num_zcps = num_zcps,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = False,
+                                num_time_steps = args.timesteps,
+                                num_zcps = num_zcps,
+                                separate_op_fp = args.separate_op_fp,
+                                unroll_fgcn = args.unroll_fgcn,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                detach_mode = args.detach_mode,
+                                input_zcp = True,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
+                                residual=args.residual,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                back_mlp = args.back_mlp,
+                                opemb_direct = args.opemb_direct,
+                                back_opemb = args.back_opemb,
+                                randopupdate = args.randopupdate,
+                                back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
             else:
-                model = GIN_ModelGIN_Model(
-                                    device=args.cpu_gpu_device,
-                                    dual_gcn = True,
-                                    num_zcps = num_zcps,
-                                    vertices = input_dim,
-                                    none_op_ind = none_op_ind,
-                                    op_embedding_dim = 48,
-                                    node_embedding_dim = 48,
-                                    zcp_embedding_dim = 48,
-                                    hid_dim = 96,
-                                    gcn_out_dims = args.forward_gcn_out_dims,
-                                    op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
-                                    mlp_dims = [200, 200, 200],
-                                    dropout = 0.0,
-                                    replace_bgcn_mlp_dims = args.replace_bgcn_mlp_dims,
-                                    nn_emb_dims = 128,
-                                    input_zcp = False,
-                                    zcp_embedder_dims = [128, 128],
-                                    ensemble_fuse_method = args.ensemble_fuse_method,
-                                    gtype = args.gnn_type
-                            )
+                model = GIN_Model(device=args.cpu_gpu_device,
+                                gtype = args.gnn_type,
+                                back_dense=args.back_dense,
+                                dual_gcn = True,
+                                num_time_steps = args.timesteps,
+                                num_zcps = num_zcps,
+                                vertices = input_dim,
+                                none_op_ind = none_op_ind,
+                                separate_op_fp = args.separate_op_fp,
+                                detach_mode = args.detach_mode,
+                                input_zcp = True,
+                                gcn_out_dims = args.forward_gcn_out_dims,
+                                backward_gcn_out_dims = args.backward_gcn_out_dims,
+                                op_fp_gcn_out_dims = args.op_fp_gcn_out_dims,
+                                bmlp_ally = args.bmlp_ally,
+                                fb_conversion_dims = args.fb_conversion_dims,
+                                residual=args.residual,
+                                unroll_fgcn = args.unroll_fgcn,
+                                back_mlp = args.back_mlp,
+                                randopupdate = args.randopupdate,
+                                opemb_direct = args.opemb_direct,
+                                back_opemb = args.back_opemb,
+                                back_y_info = args.back_y_info,
+                                ensemble_fuse_method = args.ensemble_fuse_method,
+                                unique_attention_projection=args.unique_attention_projection,
+                                opattention=args.opattention,
+                                back_opemb_only = args.back_opemb_only,
+                                leakyrelu=args.leakyrelu,
+                                attention_rescale=args.attention_rescale)
         elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
             representation_size = next(iter(train_dataloader))[0].shape[1]
             model = FullyConnectedNN(layer_sizes = [representation_size] + [200] * 3 + [1]).to(args.cpu_gpu_device)
@@ -583,14 +642,16 @@ if not os.path.exists('correlation_results/{}'.format(args.name_desc)):
 
 filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 
-header = "uid,name_desc,seed,batch_size,epochs,space,task,representation,loss_type,gnn_type,key,op_fp_gcn_out_dims,forward_gcn_out_dims,backward_gcn_out_dims,replace_bgcn_mlp_dims,fb_conversion_dims,ensemble_fuse_method,device,spr,kdt,spr_std,kdt_std"
+header = "uid,name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,opfpgcn,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,detach_mode,opemb_direct,unroll_fgcn,bmlp_ally,separate_op_fp,device,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
 
 with open(filename, 'a') as f:
     for key in samp_eff.keys():
-        vals = [str(uid),
+        f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" % 
+                (   
+                    str(uid),
                     str(args.name_desc),
                     str(args.seed),
                     str(args.batch_size),
@@ -598,18 +659,37 @@ with open(filename, 'a') as f:
                     str(args.space),
                     str(args.task),
                     str(args.representation),
+                    str(args.timesteps),
                     str(args.loss_type),
+                    str(args.test_tagates),
                     str(args.gnn_type),
+                    str(args.back_dense),
                     str(key),
+                    str(args.residual),
+                    str(args.leakyrelu),
+                    str(args.unique_attention_projection),
+                    str(args.opattention),
+                    str(args.attention_rescale),
                     str('_'.join([str(x) for x in args.op_fp_gcn_out_dims])),
                     str('_'.join([str(x) for x in args.forward_gcn_out_dims])),
                     str('_'.join([str(x) for x in args.backward_gcn_out_dims])),
+                    str(args.back_mlp),
                     str('_'.join([str(x) for x in args.replace_bgcn_mlp_dims])),
                     str('_'.join([str(x) for x in args.fb_conversion_dims])),
+                    str(args.back_y_info),
+                    str(args.back_opemb),
                     str(args.ensemble_fuse_method),
-                    str(args.device),
+                    str(args.back_opemb_only),
+                    str(args.randopupdate),
+                    str(args.detach_mode),
+                    str(args.opemb_direct),
+                    str(args.unroll_fgcn),
+                    str(args.bmlp_ally),
+                    str(args.separate_op_fp),
+                    str(args.source_device),
                     str(record_[key][2]),
                     str(record_[key][0]),
                     str(record_[key][3]),
-                    str(record_[key][1])]
-        f.write("%s\n" % ','.join(vals))
+                    str(record_[key][1])
+                )
+        )

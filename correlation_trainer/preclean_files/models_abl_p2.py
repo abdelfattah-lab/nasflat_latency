@@ -188,6 +188,7 @@ class GIN_Model(nn.Module):
     def __init__(
             self,
             device='cpu',
+            back_dense=False,
             dual_gcn = False,
             num_zcps = 13,
             vertices = 7,
@@ -200,11 +201,32 @@ class GIN_Model(nn.Module):
             op_fp_gcn_out_dims = [128, 128],
             mlp_dims = [200, 200, 200],
             dropout = 0.0,
+            num_time_steps = 1,
+            fb_conversion_dims = [128, 128],
+            backward_gcn_out_dims = [128, 128, 128, 128, 128],
             replace_bgcn_mlp_dims = [128, 128, 128, 128, 128],
+            updateopemb_dims = [128],
+            back_mlp = False,
+            back_opemb  = False,
+            back_y_info = False,
+            unroll_fgcn = False,
+            updateopemb_scale = 0.1,
+            nn_emb_dims = 128,
             input_zcp = False,
             zcp_embedder_dims = [128, 128],
             ensemble_fuse_method = "add",
-            gtype = 'dense'
+            gtype = 'dense',
+            residual = True,
+            unique_attention_projection = False,
+            opattention = True,
+            leakyrelu = True,
+            bmlp_ally = False,
+            randopupdate = False,
+            opemb_direct = False,
+            detach_mode = 'default',
+            attention_rescale = False,
+            separate_op_fp = False,
+            back_opemb_only = False,
     ):
         super(GIN_Model, self).__init__()
         # if num_time_steps > 1:
@@ -216,26 +238,50 @@ class GIN_Model(nn.Module):
         3. We maintain the 'Op Update' MLP, and DO NOT detach anything
         4. Fix time-step to 2, to indicate an 'unrolled' computation. Less messy.
         """
+        self.device = device
+        # self.dual_input = dual_input
         self.wd_repr_dims = 8
         self.dinp = 2
-        self.device = device
         self.dual_gcn = dual_gcn
+        self.op_fp_gcn_out_dims = op_fp_gcn_out_dims
+        self.dual_input = dual_gcn
+        self.unroll_fgcn = unroll_fgcn
+        self.separate_op_fp = separate_op_fp
         self.num_zcps = num_zcps
-        self.vertices = vertices
-        self.none_op_ind = none_op_ind
+        self.randopupdate = randopupdate
         self.op_embedding_dim = op_embedding_dim
+        self.back_opemb_only = back_opemb_only
+        self.bmlp_ally = bmlp_ally
+        self.detach_mode = detach_mode
         self.node_embedding_dim = node_embedding_dim
         self.zcp_embedding_dim = zcp_embedding_dim
         self.hid_dim = hid_dim
         self.gcn_out_dims = gcn_out_dims
-        self.op_fp_gcn_out_dims = op_fp_gcn_out_dims
-        self.mlp_dims = mlp_dims
         self.dropout = dropout
-        self.replace_bgcn_mlp_dims = replace_bgcn_mlp_dims
+        self.num_time_steps = num_time_steps
+        self.fb_conversion_dims = fb_conversion_dims
+        self.back_opemb = back_opemb
+        self.opemb_direct = opemb_direct
+        self.back_y_info = back_y_info
+        self.backward_gcn_out_dims = backward_gcn_out_dims
+        self.ensemble_fuse_method = ensemble_fuse_method
+        self.updateopemb_dims = updateopemb_dims
+        self.updateopemb_scale = updateopemb_scale
+        self.mlp_dims = mlp_dims
+        self.nn_emb_dims = nn_emb_dims
         self.input_zcp = input_zcp
         self.zcp_embedder_dims = zcp_embedder_dims
-        self.ensemble_fuse_method = ensemble_fuse_method
+        self.vertices = vertices
+        self.none_op_ind = none_op_ind
         self.gtype = gtype
+        self.back_dense = back_dense
+        self.residual = residual
+        self.unique_attn_proj = unique_attention_projection
+        self.opattention = opattention
+        self.leakyrelu = leakyrelu
+        self.attention_rescale = attention_rescale
+        self.replace_bgcn_mlp_dims = replace_bgcn_mlp_dims
+        self.back_mlp = back_mlp
         if not self.opattention:
             self.op_embedding_dim = self.gcn_out_dims[0]
             self.node_embedding_dim = self.gcn_out_dims[0]
@@ -331,7 +377,7 @@ class GIN_Model(nn.Module):
         self.zcp_embedder = nn.Sequential(*self.zcp_embedder)
 
         self.replace_bgcn_mlp = []
-        in_dim = self.forward_gcn_out_dims[-1]
+        in_dim = self.fb_conversion_dims[-1]
         num_layers = len(self.replace_bgcn_mlp_dims)
         for i_dim, mlp_dim in enumerate(self.replace_bgcn_mlp_dims):
             self.replace_bgcn_mlp.append(nn.Linear(in_dim, mlp_dim))
@@ -340,6 +386,18 @@ class GIN_Model(nn.Module):
             in_dim = mlp_dim
         self.replace_bgcn_mlp = nn.Sequential(*self.replace_bgcn_mlp)
 
+        # # fb_conversion
+        # if self.num_time_steps > 1:
+        #     self.fb_conversion_list = []
+        #     dim = self.gcn_out_dims[-1]
+        #     num_fb_layers = len(self.fb_conversion_dims)
+        #     for i_dim, fb_conversion_dim in enumerate(fb_conversion_dims):
+        #         self.fb_conversion_list.append(nn.Linear(dim, fb_conversion_dim))
+        #         if i_dim < num_fb_layers - 1:
+        #             self.fb_conversion_list.append(nn.ReLU(inplace=False))
+        #         dim = fb_conversion_dim
+        #     self.fb_conversion = nn.Sequential(*self.fb_conversion_list)
+        
         # updateop_embedder
         self.updateop_embedder = []
         in_dim = 0
