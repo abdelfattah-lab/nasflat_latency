@@ -1,0 +1,13 @@
+==> save path is [results/nasbench201/help] ...
+==> mode is [meta-test] ...
+{'titanx_1': 0, 'samsung_s7': 1, 'raspi4': 2, 'silver_4210r': 3, 'titanx_32': 4, 'eyeriss': 5, 'pixel2': 6, 'titan_rtx_256': 7, 'gold_6240': 8, '1080ti_256': 9, 'silver_4114': 10, 'gold_6226': 11, 'samsung_a50': 12, 'fpga': 13, 'pixel3': 14, '1080ti_1': 15, '1080ti_32': 16, 'essential_ph_1': 17}
+==> load data ...
+==> load /home/ya255/projects/few_shot_hardware/HELP/results/nasbench201/super_script_models_2212009/checkpoint/help_max_corr.pt
+==> load 1799 model..
+[meta_test/titan_rtx_256] spearman 0.997 MSE 0.000
+[meta_test/gold_6226] spearman 0.985 MSE 0.001
+[meta_test/fpga] spearman 0.989 MSE 0.001
+[meta_test/pixel2] spearman 0.874 MSE 0.004
+[meta_test/raspi4] spearman 0.909 MSE 0.005
+[meta_test/eyeriss] spearman 0.977 MSE 0.001
+[meta_test/average] spearman 0.955 MSE 0.002 (6 devices)

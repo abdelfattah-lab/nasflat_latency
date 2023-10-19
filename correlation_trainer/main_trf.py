@@ -131,7 +131,7 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
     model.train()
     running_loss = 0.0
     for inputs, targets in dataloader:
-        if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+        if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]  or args.representation.__contains__("adj_mlp"):
             if inputs.shape[0] == 1 and args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
                 continue
             elif inputs.shape[0] <= 2 and args.space not in ['nb101', 'nb201', 'nb301', 'tb101']:
@@ -158,7 +158,7 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
         if ex_thresh_nums > n_max_pairs:
             keep_inds = np.random.choice(np.arange(ex_thresh_nums), n_max_pairs, replace=False)
             ex_thresh_inds = (ex_thresh_inds[0][keep_inds], ex_thresh_inds[1][keep_inds])
-        if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+        if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]  or args.representation.__contains__("adj_mlp"):
             archs_1 = [torch.stack(list((inputs[indx] for indx in ex_thresh_inds[1])))]
             archs_2 = [torch.stack(list((inputs[indx] for indx in ex_thresh_inds[0])))]
             X_input_1 = archs_1[0].to(dtype=torch.float32, device=args.cpu_gpu_device)
@@ -251,7 +251,7 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
     for repr_idx, (reprs, scores) in enumerate(tqdm(test_dataloader)):
         if epoch < args.epochs - 5 and repr_idx > repr_max:
             break
-        if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+        if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"] or args.representation.__contains__("adj_mlp"):
             pred_scores.append(model(reprs.to(args.cpu_gpu_device, dtype=torch.float32)).squeeze().detach().cpu().tolist())
         elif args.representation in ["adj_gin"]:
             if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
@@ -291,7 +291,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
     sample_indexes = indexes
     for device in devices:
         if representation.__contains__("gin") == False: # adj_mlp, zcp, arch2vec, cate --> FullyConnectedNN
-            if representation == "adj_mlp": # adj_mlp --> FullyConnectedNN
+            if representation.__contains__("adj_mlp"): # adj_mlp --> FullyConnectedNN
                 for i in tqdm(sample_indexes):
                     if space not in ["nb101", "nb201", "nb301", "tb101"]:
                         adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
@@ -304,7 +304,8 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
                         op_mat_norm = torch.Tensor(np.asarray(op_mat_norm)).argmax(dim=1).numpy().flatten() # Careful here.
                         op_mat_red = torch.Tensor(np.asarray(op_mat_red)).argmax(dim=1).numpy().flatten() # Careful here.
                         hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat_norm)).flatten() / len(embedding_gen.devices())
-                        representations.append(np.concatenate((adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red, norm_w_d, hw_idx)).tolist())
+                        metric_val = np.asarray(eval('embedding_gen.get_{}(i, "{}")'.format(representation.replace("adj_mlp_", ""), args.task)))
+                        representations.append(np.concatenate((adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red, norm_w_d, hw_idx, metric_val)))
                     else:
                         adj_mat, op_mat = embedding_gen.get_adj_op(i).values()
                         if space == 'tb101':
@@ -318,7 +319,8 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
                         adj_mat = np.asarray(adj_mat).flatten()
                         op_mat = torch.Tensor(np.asarray(op_mat)).argmax(dim=1).numpy().flatten() # Careful here.
                         hw_idx = np.asarray([embedding_gen.get_device_index(device),] * len(op_mat)).flatten()
-                        representations.append(np.concatenate((adj_mat, op_mat, norm_w_d, hw_idx)).tolist())
+                        metric_val = np.asarray(eval('embedding_gen.get_{}(i, "{}")'.format(representation.replace("adj_mlp_", ""), args.task)))
+                        representations.append(np.concatenate((adj_mat, op_mat, norm_w_d, hw_idx, metric_val)))
             else:                           # zcp, arch2vec, cate --> FullyConnectedNN
                 for i in tqdm(sample_indexes):
                     hw_idx = np.asarray([embedding_gen.get_device_index(device),] * 8).flatten()
@@ -410,7 +412,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
 def get_input_dimensions(train_dataloader, representation): 
     if representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
         return next(iter(train_dataloader))[0][1].shape[1]
-    elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+    elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"] or representation.__contains__("adj_mlp"):
         return next(iter(train_dataloader))[0].shape[1]
     else:
         return None
@@ -443,6 +445,8 @@ def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
 
 def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
     vectors = list(arch2vecs_.values())
+    print("Conducting KMeans...")
+    start = time.time()
     kmeans = KMeans(n_clusters=n).fit(vectors)
     # Choose the vectors closest to the centroids as the representatives
     distinct_indices = []
@@ -451,10 +455,11 @@ def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
         distinct_indices.append(np.argmin(distances))
     # Return the corresponding keys from the arch2vecs_ dictionary
     keys = list(arch2vecs_.keys())
+    print("KMeans took {} seconds".format(time.time() - start))
     return [keys[i] for i in distinct_indices]
 
 
-def get_distinct_index(args, embedding_gen, space, sample_count, metric, device): # [random, params, arc2vec, cate, zcp, accuracy/latency (oracle)]
+def get_distinct_index(args, embedding_gen, space, sample_count, metric, device): # [random, params, arc2vec, cate, zcp, a2vcatezcp, accuracy/latency (oracle)]
     if metric == 'random':
         return random.sample(list(range(embedding_gen.get_numitems(space=space))), sample_count)
     elif metric == 'params':
@@ -464,7 +469,7 @@ def get_distinct_index(args, embedding_gen, space, sample_count, metric, device)
         return [random.choice(bucket) for bucket in buckets]
     elif metric in ['arch2vec', 'cate', 'zcp', 'a2vcatezcp']:
         metricdict_ = {i: getattr(embedding_gen, f"get_{metric}")(i) for i in list(range(embedding_gen.get_numitems(space=space)))}
-        return get_distinct_arch2vec_kmeans(metricdict_, sample_count)
+        return get_distinct_arch2vecs_kmeans(metricdict_, sample_count)
     elif metric == 'accuracy':
         accs_ = {i: embedding_gen.get_valacc(i, space=space) for i in list(range(embedding_gen.get_numitems(space=space)))}
         accs_ = {k: v for k, v in sorted(accs_.items(), key=lambda item: item[1])}
@@ -492,11 +497,13 @@ for tr_ in range(args.num_trials):
         # Create a train data-loader with 'sample_count' samples of each 'source_device'
         train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=train_samps, devices=args.source_devices, batch_specified=128)
         total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
-        test_samples = list(set(range(total_samples - 1)) - set(train_indexes))
+        # test_samples = list(set(range(total_samples - 1)) - set(train_indexes))
+        test_samples = list(set(range(total_samples)))
         test_dataloader, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=args.source_devices)
         test_dataloaderlowbs, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:4], devices=args.source_devices)
 
         input_dim = get_input_dimensions(train_dataloader, representation)
+        # import pdb; pdb.set_trace()
 
         if representation == "adj_gin":
             dual_gcn = args.space not in ["nb101", "nb201", "nb301", "tb101"]
@@ -509,7 +516,7 @@ for tr_ in range(args.num_trials):
             input_zcp = True,
             model = create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args)
 
-        elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"]:
+        elif representation in ["adj_mlp", "zcp", "arch2vec", "cate"] or representation.__contains__("adj_mlp"):
             model = FullyConnectedNN(layer_sizes=[input_dim] + [200] * 3 + [1]).to(args.cpu_gpu_device)
         # Train on the train data-loader (pwl_train)
         model.to(args.cpu_gpu_device)
@@ -546,8 +553,8 @@ for tr_ in range(args.num_trials):
                 # Find the index of the hardware which has the highest correlation
                 # Create a transfer data-loader with 'transfer_count' samples of each 'target_device'
                 transfer_samps = get_distinct_index(args, embedding_gen, args.space, transfer_count, args.sampling_metric, tfdevice)
-                import pdb; pdb.set_trace()
-                test_samples = list(set(range(total_samples - 1)) - set(transfer_samps))
+                # import pdb; pdb.set_trace()
+                test_samples = list(set(range(total_samples)))
                 transfer_dataloader, transfer_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=transfer_samps, devices=[tfdevice])
                 transfer_test_dataloader, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=[tfdevice])
                 transfer_test_dataloaderlowbs, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:4], devices=[tfdevice])

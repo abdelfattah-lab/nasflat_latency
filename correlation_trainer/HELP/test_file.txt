@@ -1,0 +1,10 @@
+==> save path is [results/nasbench201/help] ...
+==> mode is [meta-test] ...
+{'1080ti_32': 0, '2080ti_32': 1, 'titanx_256': 2, 'gold_6240': 3, 'pixel3': 4, 'titanx_32': 5, 'titanxp_32': 6, 'raspi4': 7, 'eyeriss': 8, 'titanx_1': 9}
+==> load data ...
+==> load /home/ya255/projects/unified_nas_representation/HELP/results/nasbench201/smallset_adv_num_samples_10_seed_5/checkpoint/help_max_corr.pt
+==> load 1799 model..
+[meta_test/eyeriss] spearman 0.504 MSE 0.025
+[meta_test/pixel3] spearman 0.655 MSE 0.019
+[meta_test/raspi4] spearman 0.722 MSE 0.014
+[meta_test/average] spearman 0.627 MSE 0.019 (3 devices)

@@ -1,0 +1,19 @@
+python main.py --gpu $1 \
+		--search_space fbnet \
+		--mode 'meta-train' \
+		--num_episodes 4000 \
+		--num_meta_train_sample 4000 \
+		--num_samples 128 \
+		--alpha_on True \
+		--second_order True \
+		--hw_embed_on True \
+		--hw_embed_dim 10 \
+		--layer_size 100 \
+		--z_on True \
+		--determ False \
+		--seed 3 \
+		--num_inner_tasks 10 \
+		--exp_name 'BCLT0.6_NS_128' \
+		--meta_train_devices '2080ti_1,titan_rtx_1,1080ti_1,titanxp_1,titanx_1,titan_rtx_32,2080ti_32,1080ti_32,titanxp_32' \
+		--meta_valid_devices 'titanx_1,titanx_32,titanx_64,gold_6240' \
+		--meta_test_devices 'fpga,raspi4,eyeriss'

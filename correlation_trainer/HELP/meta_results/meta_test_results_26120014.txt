@@ -1,0 +1,10 @@
+==> save path is [results/nasbench201/help] ...
+==> mode is [meta-test] ...
+{'samsung_a50': 0, 'titanxp_32': 1, 'desktop_gpu_gtx_1080ti_fp32': 2, 'silver_4210r': 3, 'gold_6240': 4, '2080ti_32': 5, 'titanx_32': 6, 'titan_rtx_1': 7, 'titan_rtx_32': 8, 'titanx_1': 9, 'embedded_tpu_edge_tpu_int8': 10, 'eyeriss': 11, 'pixel2': 12, 'gold_6226': 13, '2080ti_1': 14, 'silver_4114': 15, 'titanxp_1': 16, '1080ti_1': 17, '1080ti_32': 18, 'samsung_s7': 19}
+==> load data ...
+==> load /home/ya255/projects/few_shot_hardware/HELP/results/nasbench201/super_script_models_26120014/checkpoint/help_max_corr.pt
+==> load 1599 model..
+[meta_test/eyeriss] spearman 0.470 MSE 0.030
+[meta_test/desktop_gpu_gtx_1080ti_fp32] spearman 0.215 MSE 0.047
+[meta_test/embedded_tpu_edge_tpu_int8] spearman -0.123 MSE 0.035
+[meta_test/average] spearman 0.187 MSE 0.038 (3 devices)

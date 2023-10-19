@@ -1,0 +1,11 @@
+==> save path is [results/fbnet/help] ...
+==> mode is [meta-test] ...
+{'titanx_64': 0, '2080ti_64': 1, 'titanxp_64': 2, 'pixel2': 3, '2080ti_1': 4, 'titan_rtx_32': 5, 'titanx_32': 6, 'gold_6226': 7, '2080ti_32': 8, 'samsung_s7': 9, 'titanxp_32': 10, 'titan_rtx_64': 11, 'titanxp_1': 12, '1080ti_32': 13, 'essential_ph_1': 14, 'titan_rtx_1': 15, 'gold_6240': 16, 'titanx_1': 17, '1080ti_1': 18, '1080ti_64': 19}
+==> load data ...
+==> load /home/ya255/projects/few_shot_hardware/HELP/results/fbnet/super_script_models_99961/checkpoint/help_max_corr.pt
+==> load 1999 model..
+[meta_test/gold_6226] spearman 0.271 MSE 0.023
+[meta_test/essential_ph_1] spearman 0.381 MSE 0.015
+[meta_test/samsung_s7] spearman 0.381 MSE 0.017
+[meta_test/pixel2] spearman 0.481 MSE 0.015
+[meta_test/average] spearman 0.379 MSE 0.017 (4 devices)

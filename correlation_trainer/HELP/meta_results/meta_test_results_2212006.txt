@@ -1,0 +1,11 @@
+==> save path is [results/fbnet/help] ...
+==> mode is [meta-test] ...
+{'silver_4210r': 0, 'samsung_a50': 1, 'eyeriss': 2, 'titanxp_1': 3, 'titanx_32': 4, 'pixel3': 5, '2080ti_1': 6, 'titan_rtx_32': 7, 'gold_6240': 8, 'titanx_1': 9, 'raspi4': 10}
+==> load data ...
+==> load /home/ya255/projects/few_shot_hardware/HELP/results/fbnet/super_script_models_2212006/checkpoint/help_max_corr.pt
+==> load 1999 model..
+[meta_test/eyeriss] spearman 0.734 MSE 0.010
+[meta_test/pixel3] spearman 0.713 MSE 0.011
+[meta_test/raspi4] spearman 0.752 MSE 0.010
+[meta_test/samsung_a50] spearman 0.753 MSE 0.011
+[meta_test/average] spearman 0.738 MSE 0.010 (4 devices)

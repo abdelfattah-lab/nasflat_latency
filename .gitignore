@@ -11,7 +11,7 @@ bananas/master_dataset/*.json
 tss_NATSBench.csv
 master_dataset/
 NDS/nds_data/*.json
-
+correlation_trainer/HELP/results
 darts/
 data/
 large_scale_run_logs/

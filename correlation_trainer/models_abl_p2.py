@@ -15,7 +15,7 @@ class FullyConnectedNN(nn.Module):
         super(FullyConnectedNN, self).__init__()
 
         self.layers = nn.ModuleList()
-
+        # import pdb; pdb.set_trace()
         for i in range(len(layer_sizes) - 1):
             self.layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
             if i < len(layer_sizes) - 2:

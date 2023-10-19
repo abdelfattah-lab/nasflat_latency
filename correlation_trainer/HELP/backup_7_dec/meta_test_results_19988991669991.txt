@@ -1,0 +1,10 @@
+==> save path is [results/nasbench201/help] ...
+==> mode is [meta-test] ...
+{'2080ti_32': 0, 'titanx_1': 1, 'titanx_32': 2, 'pixel3': 3, 'titanxp_32': 4, 'raspi4': 5, '1080ti_32': 6, 'gold_6240': 7, 'eyeriss': 8}
+==> load data ...
+==> load /home/ya255/projects/few_shot_hardware/HELP/results/nasbench201/super_script_models_19988991669991/checkpoint/help_max_corr.pt
+==> load 899 model..
+[meta_test/eyeriss] spearman 0.507 MSE 0.025
+[meta_test/pixel3] spearman 0.667 MSE 0.017
+[meta_test/raspi4] spearman 0.745 MSE 0.017
+[meta_test/average] spearman 0.639 MSE 0.020 (3 devices)

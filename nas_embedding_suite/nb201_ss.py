@@ -259,7 +259,7 @@ class NASBench201:
             val_acc = acc_results / 100.
         return val_acc
 
-    def get_valacc(self, idx):
+    def get_valacc(self, idx, space=None):
         # Use cached result
         return self.vacccache.get(idx, None)  # Returns None if idx is not in the cache (though it shouldn't happen)
 

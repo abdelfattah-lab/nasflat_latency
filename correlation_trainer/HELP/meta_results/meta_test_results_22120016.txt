@@ -1,0 +1,10 @@
+==> save path is [results/nasbench201/help] ...
+==> mode is [meta-test] ...
+{'1080ti_1': 0, 'pixel3': 1, 'mobile_cpu_snapdragon_855_kryo_485_int8': 2, 'samsung_s7': 3, 'mobile_gpu_snapdragon_450_adreno_506_int8': 4, 'gold_6226': 5, 'embedded_tpu_edge_tpu_int8': 6, '2080ti_1': 7, 'titanx_1': 8, 'embedded_gpu_jetson_nano_fp16': 9, 'mobile_gpu_snapdragon_675_adreno_612_int8': 10, 'gold_6240': 11, 'titanx_32': 12, 'silver_4114': 13}
+==> load data ...
+==> load /home/ya255/projects/few_shot_hardware/HELP/results/nasbench201/super_script_models_22120016/checkpoint/help_max_corr.pt
+==> load 1999 model..
+[meta_test/embedded_tpu_edge_tpu_int8] spearman -0.321 MSE 1738210.000
+[meta_test/embedded_gpu_jetson_nano_fp16] spearman 0.883 MSE 0.005
+[meta_test/mobile_gpu_snapdragon_675_adreno_612_int8] spearman 0.903 MSE 0.006
+[meta_test/average] spearman 0.488 MSE 579403.337 (3 devices)
