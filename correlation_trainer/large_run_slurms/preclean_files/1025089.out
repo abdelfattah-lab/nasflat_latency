@@ -1,0 +1,12 @@
+normalizing task:  Amoeba.json
+normalizing task:  PNAS_fix-w-d.json
+normalizing task:  ENAS_fix-w-d.json
+normalizing task:  NASNet.json
+normalizing task:  DARTS.json
+normalizing task:  ENAS.json
+normalizing task:  PNAS.json
+normalizing task:  DARTS_lr-wd.json
+normalizing task:  DARTS_fix-w-d.json
+> /home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py(538)_process_architecture()
+-> y = self._forward_pass(x, adjs, op_emb)
+(Pdb) 

@@ -51,7 +51,7 @@ parser.add_argument('--task', type=str, default='class_scene')     # all tb101 t
 parser.add_argument('--representation', type=str, default='cate')  # adj_mlp, adj_gin, zcp (except nb301), cate, arch2vec, adj_gin_zcp, adj_gin_arch2vec, adj_gin_cate supported. # adj_gin_org
 parser.add_argument('--loss_type', type=str, default='pwl')        # mse, pwl supported
 parser.add_argument('--gnn_type', type=str, default='dense')       # dense, gat, gat_mh supported
-parser.add_argument('--hwemb_to_mlp', action="store_true")         # hw embedding at MLP stage if True, at per-node embedding if False (False should be better) #TODO IMPLEMENT TODAY
+parser.add_argument('--hwemb_to_mlp', action="store_true")         # hw embedding at MLP stage if True, at per-node embedding if False (False should be better)
 parser.add_argument('--transfer_hwemb', action="store_true")       # Init emb of new HW to closest training HW if True, else use random init for HW Emb (True should be better) #TODO IMPLEMENT TODAY
 parser.add_argument('--num_trials', type=int, default=3)
 parser.add_argument('--op_fp_gcn_out_dims', nargs='+', type=int, default=[128, 128])
@@ -422,6 +422,7 @@ def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
         cpu_gpu_device=args.cpu_gpu_device,
         dual_gcn=dual_gcn,
         num_zcps=num_zcps,
+        hwemb_to_mlp=args.hwemb_to_mlp,
         vertices=input_dim,
         none_op_ind=none_op_ind,
         op_embedding_dim=48,
@@ -542,14 +543,32 @@ for tr_ in range(args.num_trials):
                 if transfer_count not in results_dict[tfdevice][sample_count]:
                     results_dict[tfdevice][sample_count][transfer_count] = {'kdt': [], 'spr': []}
 
-                # Reload the trained network state_dict
-                model.load_state_dict(trained_state_dict)
+                # Find the index of the hardware which has the highest correlation
                 # Create a transfer data-loader with 'transfer_count' samples of each 'target_device'
                 transfer_samps = get_distinct_index(args, embedding_gen, args.space, transfer_count, args.sampling_metric, tfdevice)
+                import pdb; pdb.set_trace()
                 test_samples = list(set(range(total_samples - 1)) - set(transfer_samps))
                 transfer_dataloader, transfer_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=transfer_samps, devices=[tfdevice])
                 transfer_test_dataloader, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=[tfdevice])
                 transfer_test_dataloaderlowbs, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:4], devices=[tfdevice])
+
+                
+                # Reload the trained network state_dict
+                model.load_state_dict(trained_state_dict)
+                # Here, if transfer_hwemb is True, measure correlation between each of the source_devices and the tfdevice. 
+                if args.transfer_hwemb:
+                    s_t_corr = {}
+                    for sdev in args.source_devices:
+                        # Find source-target device correlation
+                        # TODO : We should sum the sample count and transfer count to get the total number of samples for pre-training!!!!!
+                        s_t_corr[sdev] = spearmanr([embedding_gen.get_latency(i, device=sdev, space=space) for i in transfer_samps], [embedding_gen.get_latency(i, device=tfdevice, space=space) for i in transfer_samps]).correlation
+                    # Choose the source_device with the highest correlation
+                    maxcorr_sdev = max(s_t_corr, key=s_t_corr.get)
+                    # Find the embedding_gen.get_device_index for maxcorr_sdev
+                    maxcorr_sdev_idx = embedding_gen.get_device_index(device=maxcorr_sdev)
+                    # Now, replace the hwemb of the tfdevice with the hwemb of maxcorr_sdev using the get_device_index
+                    model.hw_emb.weight.data[embedding_gen.get_device_index(device=tfdevice)] = model.hw_emb.weight.data[maxcorr_sdev_idx]
+
                 # Train on the transfer data-loader (pwl_train)
                 model.to(args.cpu_gpu_device)
                 params_optimize = list(model.parameters())
@@ -601,7 +620,7 @@ if not os.path.exists('correlation_results/{}'.format(args.name_desc)):
 filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 
 header = "uid,name_desc,seed,space,source_devices,sampling_metric,metric_device,target_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
-opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device,spr,kdt,spr_std,kdt_std"
+opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device,hwemb_to_mlp,transfer_hwemb,spr,kdt,spr_std,kdt_std"
 # opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
@@ -637,6 +656,8 @@ with open(filename, 'a') as f:
                     str(args.epochs),
                     str(args.transfer_epochs),
                     str(args.cpu_gpu_device), # use results_dict[tfdevice][sample_count][transfer_count]['spr'].append(sum(tt_spr_l5)/len(tt_spr_l5))
+                    str(args.hwemb_to_mlp),
+                    str(args.transfer_hwemb),
                     str(np.mean(results_dict[target_device][sample_size][transfer_sample_size]['spr'])),
                     str(np.mean(results_dict[target_device][sample_size][transfer_sample_size]['kdt'])),
                     str(np.std(results_dict[target_device][sample_size][transfer_sample_size]['spr'])),

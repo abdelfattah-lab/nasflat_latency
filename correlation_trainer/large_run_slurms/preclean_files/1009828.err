@@ -1,0 +1,5 @@
+WARNING:tensorflow:From /home/ya255/projects/unified_nas_representation/nasbench/nasbench/api.py:146: tf_record_iterator (from tensorflow.python.lib.io.tf_record) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use eager execution and: 
+`tf.data.TFRecordDataset(path)`
+slurmstepd: error: *** JOB 1009828 ON sablab-gpu-04 CANCELLED AT 2023-10-05T15:59:41 DUE TO PREEMPTION ***

@@ -1,0 +1,8 @@
+Loading Files for NASBench101...
+Loading dataset from file... This may take a few minutes...
+Loaded dataset in 61 seconds
+Loaded files in:  93.84874367713928  seconds
+Normalizing ZCP dict
+> /home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py(538)_process_architecture()
+-> y = self._forward_pass(x, adjs, op_emb)
+(Pdb) 

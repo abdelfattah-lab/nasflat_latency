@@ -1,0 +1,27 @@
+  0%|          | 0/64 [00:00<?, ?it/s] 44%|████▍     | 28/64 [00:00<00:00, 279.61it/s]100%|██████████| 64/64 [00:00<00:00, 612.85it/s]
+  0%|          | 0/15560 [00:00<?, ?it/s] 14%|█▎        | 2114/15560 [00:00<00:00, 21135.79it/s] 28%|██▊       | 4412/15560 [00:00<00:00, 22218.42it/s] 43%|████▎     | 6758/15560 [00:00<00:00, 22783.70it/s] 59%|█████▉    | 9217/15560 [00:00<00:00, 23494.46it/s] 74%|███████▍  | 11567/15560 [00:00<00:00, 23145.33it/s] 89%|████████▉ | 13883/15560 [00:00<00:00, 23107.88it/s]100%|██████████| 15560/15560 [00:00<00:00, 23113.89it/s]
+  0%|          | 0/80 [00:00<?, ?it/s]100%|██████████| 80/80 [00:00<00:00, 23128.23it/s]
+/home/ya255/projects/flan_hardware/correlation_trainer/models_abl.py:429: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:230.)
+  adjs = self.input_op_emb.new([arch.T for arch in archs[0]])
+Traceback (most recent call last):
+  File "main_abl.py", line 504, in <module>
+    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader_lowbs, epoch)
+  File "main_abl.py", line 151, in pwl_train
+    s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=norm_w_d_1).squeeze()
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl.py", line 638, in forward
+    y_1 = self.mlp(y_1)
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/container.py", line 204, in forward
+    input = module(input)
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/container.py", line 204, in forward
+    input = module(input)
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/linear.py", line 114, in forward
+    return F.linear(input, self.weight, self.bias)
+RuntimeError: mat1 and mat2 shapes cannot be multiplied (28x256 and 128x200)

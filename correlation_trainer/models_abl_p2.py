@@ -185,6 +185,7 @@ class GIN_Model(nn.Module):
             vertices = 7,
             none_op_ind = 3,
             op_embedding_dim = 48,
+            hwemb_to_mlp = False,
             node_embedding_dim = 48,
             zcp_embedding_dim = 48,
             hid_dim = 96,
@@ -219,6 +220,7 @@ class GIN_Model(nn.Module):
         self.none_op_ind = none_op_ind
         self.op_embedding_dim = op_embedding_dim
         self.updateopemb_dims = updateopemb_dims
+        self.hwemb_to_mlp = hwemb_to_mlp
         self.node_embedding_dim = node_embedding_dim
         self.zcp_embedding_dim = zcp_embedding_dim
         self.hid_dim = hid_dim
@@ -251,6 +253,8 @@ class GIN_Model(nn.Module):
             reg_inp_dims += self.zcp_embedding_dim
         if self.dual_gcn:
             reg_inp_dims += self.wd_repr_dims
+        if self.hwemb_to_mlp:
+            reg_inp_dims += self.op_embedding_dim
         dim = reg_inp_dims
         for hidden_size in self.mlp_dims:
             self.mlp.append(nn.Sequential(
@@ -262,7 +266,7 @@ class GIN_Model(nn.Module):
         self.mlp = nn.Sequential(*self.mlp)
         
         # op embeddings
-        if self.device != None:
+        if self.device != None and not self.hwemb_to_mlp:
             self.op_emb = nn.Embedding(128, self.op_embedding_dim//2)
             self.hw_emb = nn.Embedding(128, self.op_embedding_dim//2)
             self.input_op_emb = nn.Parameter(
@@ -330,6 +334,16 @@ class GIN_Model(nn.Module):
             in_dim = dim
         self.op_f_gcns = nn.ModuleList(self.op_f_gcns)
         self.num_op_fp_gcn_layers = len(self.op_f_gcns)
+
+        if self.hwemb_to_mlp:
+            self.hw_emb_embedder = []
+            in_dim = self.op_embedding_dim
+            for embedder_dim in [self.op_embedding_dim]:
+                self.hw_emb_embedder.append(nn.Linear(in_dim, embedder_dim))
+                self.hw_emb_embedder.append(nn.ReLU(inplace = False))
+                in_dim = embedder_dim
+            self.hw_emb_embedder.append(nn.Linear(in_dim, self.op_embedding_dim))
+            self.hw_emb_embedder = nn.Sequential(*self.hw_emb_embedder)
 
         # zcp
         self.zcp_embedder = []
@@ -497,7 +511,7 @@ class GIN_Model(nn.Module):
 
     def _process_architecture(self, x, adjs, op_emb, op_inds, hw_idx=None):
         # Here, if device != None, concatenate per-vertex embedding with hw_emb_tab and hw_idx to op_emb
-        if self.device != None:
+        if self.device != None and not self.hwemb_to_mlp:
             hw_embs, hw_inds = self.embed_hw(hw_idx)
             op_emb = torch.cat((op_emb, hw_embs), dim=-1) ## TODO[emb_tab currently half if device != None]
         op_emb = self._forward_op_pass(x, adjs, op_emb)
@@ -514,15 +528,20 @@ class GIN_Model(nn.Module):
         adjs_1, x_1, op_emb_1, op_inds_1 = self._prepare_architecture(x_adj_1, x_ops_1)
         y_1 = self._process_architecture(x_1, adjs_1, op_emb_1, op_inds_1, hw_idx=hw_idx)
         
+        if self.hwemb_to_mlp:
+            hw_inds = self.input_op_emb.new([[hw_[0]] for hw_ in hw_idx.cpu().tolist()]).long()
+            hw_embs = self.hw_emb(hw_inds).squeeze()
+        
         if self.dual_gcn:
             adjs_2, x_2, op_emb_2, op_inds_2 = self._prepare_architecture(x_adj_2, x_ops_2)
             y_2 = self._process_architecture(x_2, adjs_2, op_emb_2, op_inds_2, hw_idx=hw_idx)
             y_1 = self.y_combiner(torch.cat((y_1, y_2), dim=-1))
-        
         y_1 = y_1.squeeze()
         if self.input_zcp:
             y_1 = self._concat_embedded_input(y_1, zcp, self.zcp_embedder)
         if self.dual_gcn:
             y_1 = self._concat_embedded_input(y_1, norm_w_d, self.norm_wd_embedder)
+        if self.hwemb_to_mlp:
+            y_1 = self._concat_embedded_input(y_1, hw_embs, self.hw_emb_embedder)
         
         return self.mlp(y_1)
