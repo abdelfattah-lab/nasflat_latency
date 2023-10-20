@@ -45,7 +45,7 @@ source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh
 
 conda activate unr
 
-cd /home/ya255/projects/flan_hardware/correlation_trainer/
+cd /home/ya255/projects/flan_hardware/correlation_trainer/automl_conf_codesub_multipredict
 
 $command
 EOL

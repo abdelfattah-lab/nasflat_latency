@@ -185,6 +185,7 @@ class GIN_Model(nn.Module):
             vertices = 7,
             none_op_ind = 3,
             op_embedding_dim = 48,
+            hw_embedding_dim = 8,
             hwemb_to_mlp = False,
             node_embedding_dim = 48,
             zcp_embedding_dim = 48,
@@ -218,7 +219,8 @@ class GIN_Model(nn.Module):
         self.num_zcps = num_zcps
         self.vertices = vertices
         self.none_op_ind = none_op_ind
-        self.op_embedding_dim = op_embedding_dim
+        self.hw_embedding_dim = hw_embedding_dim
+        self.op_embedding_dim = op_embedding_dim - self.hw_embedding_dim
         self.updateopemb_dims = updateopemb_dims
         self.hwemb_to_mlp = hwemb_to_mlp
         self.node_embedding_dim = node_embedding_dim
@@ -267,28 +269,8 @@ class GIN_Model(nn.Module):
         
         # op embeddings
         if self.device != None and not self.hwemb_to_mlp:
-            self.op_emb = nn.Embedding(128, self.op_embedding_dim//2)
-            self.hw_emb = nn.Embedding(128, self.op_embedding_dim//2)
-            self.input_op_emb = nn.Parameter(
-                torch.zeros(1, self.op_embedding_dim//2),
-                requires_grad = False
-            )
-            self.input_hw_emb = nn.Parameter(
-                torch.zeros(1, self.op_embedding_dim//2),
-                requires_grad = False
-            )
-            self.input_node_emb = nn.Embedding(1, self.node_embedding_dim//2)
-            self.other_node_emb = nn.Parameter(
-                torch.zeros(1, self.node_embedding_dim//2), requires_grad = True
-            )
-            # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
-            # I think it is implicitly captured by concatenating the op_emb and hw_emb
-            self.output_op_emb = nn.Embedding(1, self.op_embedding_dim//2)
-            self.output_hw_emb = nn.Embedding(1, self.op_embedding_dim//2)
-            self.x_hidden = nn.Linear(self.node_embedding_dim//2, self.hid_dim)
-        else:
             self.op_emb = nn.Embedding(128, self.op_embedding_dim)
-            self.hw_emb = nn.Embedding(128, self.op_embedding_dim)
+            self.hw_emb = nn.Embedding(128, self.hw_embedding_dim)
             self.input_op_emb = nn.Parameter(
                 torch.zeros(1, self.op_embedding_dim),
                 requires_grad = False
@@ -304,7 +286,27 @@ class GIN_Model(nn.Module):
             # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
             # I think it is implicitly captured by concatenating the op_emb and hw_emb
             self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
-            self.output_hw_emb = nn.Embedding(1, self.op_embedding_dim)
+            self.output_hw_emb = nn.Embedding(1, self.hw_embedding_dim)
+            self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
+        else:
+            self.op_emb = nn.Embedding(128, self.op_embedding_dim)
+            self.hw_emb = nn.Embedding(128, self.hw_embedding_dim)
+            self.input_op_emb = nn.Parameter(
+                torch.zeros(1, self.op_embedding_dim),
+                requires_grad = False
+            )
+            self.input_hw_emb = nn.Parameter(
+                torch.zeros(1, self.hw_embedding_dim),
+                requires_grad = False
+            )
+            self.input_node_emb = nn.Embedding(1, self.node_embedding_dim)
+            self.other_node_emb = nn.Parameter(
+                torch.zeros(1, self.node_embedding_dim), requires_grad = True
+            )
+            # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
+            # I think it is implicitly captured by concatenating the op_emb and hw_emb
+            self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
+            self.output_hw_emb = nn.Embedding(1, self.hw_embedding_dim)
             self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
         # gcn
         self.gcns = []
@@ -337,7 +339,7 @@ class GIN_Model(nn.Module):
 
         if self.hwemb_to_mlp:
             self.hw_emb_embedder = []
-            in_dim = self.op_embedding_dim
+            in_dim = self.hw_embedding_dim
             for embedder_dim in [self.op_embedding_dim]:
                 self.hw_emb_embedder.append(nn.Linear(in_dim, embedder_dim))
                 self.hw_emb_embedder.append(nn.ReLU(inplace = False))
@@ -495,11 +497,10 @@ class GIN_Model(nn.Module):
         return torch.cat(base, dim=1)
 
     def embed_hw(self, hw_idx):
-        # hw_inds = self.input_op_emb.new([hw_ for hw_ in hw_idx]).long()
         hw_inds = self.input_op_emb.new([hw_ for hw_ in hw_idx.cpu().tolist()]).long()
         hw_embs = self.hw_emb(hw_inds)
-        b_size = hw_embs.shape[0]
-        # if self.dual_gcn:
+        # b_size = hw_embs.shape[0]
+        # if self.dual_gcn: #TODO test this
         #     hw_embs = hw_embs[:, self.dinp:-1, :]
         #     hw_inds = hw_inds[:, self.dinp:-1]
         #     hw_embs = self._concat_hw_embs(b_size, hw_embs, dual=True)
@@ -513,7 +514,7 @@ class GIN_Model(nn.Module):
         # Here, if device != None, concatenate per-vertex embedding with hw_emb_tab and hw_idx to op_emb
         if self.device != None and not self.hwemb_to_mlp:
             hw_embs, hw_inds = self.embed_hw(hw_idx)
-            op_emb = torch.cat((op_emb, hw_embs), dim=-1) ## TODO[emb_tab currently half if device != None]
+            op_emb = torch.cat((op_emb, hw_embs), dim=-1)
         op_emb = self._forward_op_pass(x, adjs, op_emb)
         op_emb = self.updateop_embedder(op_emb)
         y = self._forward_pass(x, adjs, op_emb)

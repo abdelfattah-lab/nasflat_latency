@@ -14,6 +14,7 @@ NDS/nds_data/*.json
 correlation_trainer/HELP/results
 correlation_trainer/automl_conf_codesub_multipredict/unified_dataset/
 unified_dataset.zip
+fbnet_zcp/data
 darts/
 data/
 large_scale_run_logs/

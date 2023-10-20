@@ -14,6 +14,6 @@ source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh
 
 conda activate unr
 
-cd /home/ya255/projects/flan_hardware/correlation_trainer/HELP
+cd /home/ya255/projects/flan_hardware/correlation_trainer/automl_conf_codesub_multipredict
 
-python main.py --gpu 0 --search_space nasbench201 --mode 'meta-train' --num_samples 20 --seed 42 --num_trials 5 --num_meta_train_sample 512 --meta_train_devices '1080ti_1,1080ti_32,1080ti_256,silver_4114,silver_4210r,samsung_a50,pixel3,essential_ph_1,samsung_s7' --meta_valid_devices 'titanx_1,titanx_32,titanx_256,gold_6240' --meta_test_devices 'titan_rtx_256,gold_6226,fpga,pixel2,raspi4,eyeriss'
+python fsh_advanced_training.py --name_desc multipredict --emb_transfer_samples 10 --fsh_mc_sampling 10 --dev_train_samples 900 --num_trials 3
