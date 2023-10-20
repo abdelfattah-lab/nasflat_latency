@@ -1,0 +1,48 @@
+{
+    "test_idx"              :  27120031,
+    "search_space"          :  "nasbench201",
+    "num_trials"            :  3,
+    "report"                : "adaptive_learned",
+    "s"                     :  20,
+    "emb_transfer_samples"  :  20,
+    "fsh_sampling_strat"    :  "random",
+    "representation"        : "hwl_vec",
+    "fsh_mc_sampling"       :  10,
+
+    "dev_train_samples"     :  900,
+    "train_batchsize"       :  128,
+    "test_batchsize"        :  128,
+
+    "epochs"                :  250,
+    "transfer_epochs"       :  50,
+
+    "mixed_training"        :  false,
+    "mixed_train_weight"    :  1,
+
+    "hw_emb_dim"            :  8,
+    "gcn_layer_size"        :  200,
+    "nn_emb_dim"            :  30,
+
+    "feat_layer_size"       :  1000,
+    "feat_depth"            :  2,
+
+
+    "loss_function"         :  "mse",
+    "train_device_list"     :  "titan_rtx_1,titan_rtx_32,titanxp_1,2080ti_1,titanx_1,1080ti_1,titanx_32,titanxp_32,2080ti_32,1080ti_32,gold_6226,samsung_s7,silver_4114,gold_6240,silver_4210r,samsung_a50,pixel2",
+    "transfer_device_list"  :  "eyeriss,desktop_gpu_gtx_1080ti_fp32,embedded_tpu_edge_tpu_int8",
+
+    "use_specific_lr"       :  false,
+    "transfer_specific_lr"  :  "0.0007,0.0007,0.001",
+
+    "embedding_type"        :  "learnable",
+
+    "closest_correlator"    :  false,
+    "embedding_transfer"    :  true,
+    "freeze_non_embedding"  :  false,
+    "adapt_new_embedding"   :  true,
+
+    "pre_train_transferset" :  false,
+    "device"                :  "cuda:0",
+    "cpu_map"               :  "cpu:0"
+    }
+    

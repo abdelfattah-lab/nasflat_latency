@@ -1,0 +1,48 @@
+{
+    "test_idx"              :  27120022,
+    "search_space"          :  "fbnet",
+    "num_trials"            :  3,
+    "report"                : "adaptive_learned",
+    "s"                     :  10,
+    "emb_transfer_samples"  :  10,
+    "fsh_sampling_strat"    :  "random",
+    "representation"        : "vec",
+    "fsh_mc_sampling"       :  10,
+
+    "dev_train_samples"     :  4000,
+    "train_batchsize"       :  128,
+    "test_batchsize"        :  128,
+
+    "epochs"                :  250,
+    "transfer_epochs"       :  50,
+
+    "mixed_training"        :  false,
+    "mixed_train_weight"    :  1,
+
+    "hw_emb_dim"            :  8,
+    "gcn_layer_size"        :  200,
+    "nn_emb_dim"            :  30,
+
+    "feat_layer_size"       :  1000,
+    "feat_depth"            :  2,
+
+
+    "loss_function"         :  "mse",
+    "train_device_list"     :  "1080ti_1,1080ti_32,1080ti_64,silver_4114,silver_4210r,samsung_a50,pixel3,essential_ph_1,samsung_s7",
+    "transfer_device_list"  :  "fpga,raspi4,eyeriss",
+
+    "use_specific_lr"       :  false,
+    "transfer_specific_lr"  :  "0.0007,0.0007,0.001",
+
+    "embedding_type"        :  "sample",
+
+    "closest_correlator"    :  false,
+    "embedding_transfer"    :  true,
+    "freeze_non_embedding"  :  false,
+    "adapt_new_embedding"   :  true,
+
+    "pre_train_transferset" :  false,
+    "device"                :  "cuda:0",
+    "cpu_map"               :  "cpu:0"
+    }
+    

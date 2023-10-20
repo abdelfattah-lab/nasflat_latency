@@ -1,0 +1,48 @@
+{
+    "test_idx"              :  3,
+    "search_space"          :  "nasbench201",
+    "num_trials"            :  1,
+    "report"                : "adaptive_learned",
+    "s"                     :  20,
+    "emb_transfer_samples"  :  20,
+    "fsh_sampling_strat"    :  "random",
+    "representation"        : "zcp_vec",
+    "fsh_mc_sampling"       :  5,
+
+    "dev_train_samples"     :  900,
+    "train_batchsize"       :  64,
+    "test_batchsize"        :  64,
+
+    "epochs"                :  150,
+    "transfer_epochs"       :  50,
+
+    "mixed_training"        :  false,
+    "mixed_train_weight"    :  1,
+
+    "hw_emb_dim"            :  8,
+    "gcn_layer_size"        :  200,
+    "nn_emb_dim"            :  50,
+
+    "feat_layer_size"       :  512,
+    "feat_depth"            :  3,
+
+
+    "loss_function"         :  "mse",
+    "train_device_list"     :  "1080ti_1,1080ti_32,1080ti_256,silver_4114,silver_4210r,samsung_a50,pixel3,essential_ph_1,samsung_s7",
+    "transfer_device_list"  :  "titan_rtx_256,gold_6226,fpga,pixel2,raspi4,eyeriss",
+
+    "use_specific_lr"       :  false,
+    "transfer_specific_lr"  :  "0.0007,0.0007,0.001",
+
+    "embedding_type"        :  "learnable",
+
+    "closest_correlator"    :  false,
+    "embedding_transfer"    :  true,
+    "freeze_non_embedding"  :  false,
+    "adapt_new_embedding"   :  true,
+
+    "pre_train_transferset" :  false,
+    "device"                :  "cuda:0",
+    "cpu_map"               :  "cpu:0"
+    }
+    

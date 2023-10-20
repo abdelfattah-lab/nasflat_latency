@@ -499,14 +499,14 @@ class GIN_Model(nn.Module):
         hw_inds = self.input_op_emb.new([hw_ for hw_ in hw_idx.cpu().tolist()]).long()
         hw_embs = self.hw_emb(hw_inds)
         b_size = hw_embs.shape[0]
-        if self.dual_gcn:
-            hw_embs = hw_embs[:, self.dinp:-1, :]
-            hw_inds = hw_inds[:, self.dinp:-1]
-            hw_embs = self._concat_hw_embs(b_size, hw_embs, dual=True)
-        else:
-            hw_embs = hw_embs[:, 1:-1, :]
-            hw_inds = hw_inds[:, 1:-1]
-            hw_embs = self._concat_hw_embs(b_size, hw_embs)
+        # if self.dual_gcn:
+        #     hw_embs = hw_embs[:, self.dinp:-1, :]
+        #     hw_inds = hw_inds[:, self.dinp:-1]
+        #     hw_embs = self._concat_hw_embs(b_size, hw_embs, dual=True)
+        # else:
+        #     hw_embs = hw_embs[:, 1:-1, :]
+        #     hw_inds = hw_inds[:, 1:-1]
+        #     hw_embs = self._concat_hw_embs(b_size, hw_embs)
         return hw_embs, hw_inds
 
     def _process_architecture(self, x, adjs, op_emb, op_inds, hw_idx=None):
