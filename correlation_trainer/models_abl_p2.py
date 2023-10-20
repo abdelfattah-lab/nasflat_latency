@@ -219,10 +219,13 @@ class GIN_Model(nn.Module):
         self.num_zcps = num_zcps
         self.vertices = vertices
         self.none_op_ind = none_op_ind
-        self.hw_embedding_dim = hw_embedding_dim
-        self.op_embedding_dim = op_embedding_dim - self.hw_embedding_dim
-        self.updateopemb_dims = updateopemb_dims
         self.hwemb_to_mlp = hwemb_to_mlp
+        self.hw_embedding_dim = hw_embedding_dim
+        if not self.hwemb_to_mlp:
+            self.op_embedding_dim = op_embedding_dim - self.hw_embedding_dim
+        else:
+            self.op_embedding_dim = op_embedding_dim
+        self.updateopemb_dims = updateopemb_dims
         self.node_embedding_dim = node_embedding_dim
         self.zcp_embedding_dim = zcp_embedding_dim
         self.hid_dim = hid_dim
@@ -268,53 +271,38 @@ class GIN_Model(nn.Module):
         self.mlp = nn.Sequential(*self.mlp)
         
         # op embeddings
+        self.op_emb = nn.Embedding(128, self.op_embedding_dim)
+        self.hw_emb = nn.Embedding(128, self.hw_embedding_dim)
+        self.input_op_emb = nn.Parameter(
+            torch.zeros(1, self.op_embedding_dim),
+            requires_grad = False
+        )
+        self.input_hw_emb = nn.Parameter(
+            torch.zeros(1, self.hw_embedding_dim),
+            requires_grad = False
+        )
+        self.input_node_emb = nn.Embedding(1, self.node_embedding_dim)
+        self.other_node_emb = nn.Parameter(
+            torch.zeros(1, self.node_embedding_dim), requires_grad = True
+        )
+        # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
+        # I think it is implicitly captured by concatenating the op_emb and hw_emb
+        self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
+        self.output_hw_emb = nn.Embedding(1, self.hw_embedding_dim)
+        self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
+        
         if self.device != None and not self.hwemb_to_mlp:
-            self.op_emb = nn.Embedding(128, self.op_embedding_dim)
-            self.hw_emb = nn.Embedding(128, self.hw_embedding_dim)
-            self.input_op_emb = nn.Parameter(
-                torch.zeros(1, self.op_embedding_dim),
-                requires_grad = False
-            )
-            self.input_hw_emb = nn.Parameter(
-                torch.zeros(1, self.op_embedding_dim),
-                requires_grad = False
-            )
-            self.input_node_emb = nn.Embedding(1, self.node_embedding_dim)
-            self.other_node_emb = nn.Parameter(
-                torch.zeros(1, self.node_embedding_dim), requires_grad = True
-            )
-            # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
-            # I think it is implicitly captured by concatenating the op_emb and hw_emb
-            self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
-            self.output_hw_emb = nn.Embedding(1, self.hw_embedding_dim)
-            self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
+            gcn_op_hw_dims = self.op_embedding_dim + self.hw_embedding_dim
         else:
-            self.op_emb = nn.Embedding(128, self.op_embedding_dim)
-            self.hw_emb = nn.Embedding(128, self.hw_embedding_dim)
-            self.input_op_emb = nn.Parameter(
-                torch.zeros(1, self.op_embedding_dim),
-                requires_grad = False
-            )
-            self.input_hw_emb = nn.Parameter(
-                torch.zeros(1, self.hw_embedding_dim),
-                requires_grad = False
-            )
-            self.input_node_emb = nn.Embedding(1, self.node_embedding_dim)
-            self.other_node_emb = nn.Parameter(
-                torch.zeros(1, self.node_embedding_dim), requires_grad = True
-            )
-            # This maintains the same embedding for all nodes. Should it instead be a different hw_emb for each node/vertex?
-            # I think it is implicitly captured by concatenating the op_emb and hw_emb
-            self.output_op_emb = nn.Embedding(1, self.op_embedding_dim)
-            self.output_hw_emb = nn.Embedding(1, self.hw_embedding_dim)
-            self.x_hidden = nn.Linear(self.node_embedding_dim, self.hid_dim)
+            gcn_op_hw_dims = self.op_embedding_dim
         # gcn
         self.gcns = []
         in_dim = self.hid_dim
+        fflag = False
         for dim in self.forward_gcn_out_dims:
             self.gcns.append(
                 LayerType(
-                    in_dim, dim, self.op_embedding_dim, self.ensemble_fuse_method
+                    in_dim, dim, gcn_op_hw_dims, self.ensemble_fuse_method
                       # potential issue
                 )
             )
@@ -326,10 +314,11 @@ class GIN_Model(nn.Module):
         # separate operator forward pass for update
         self.op_f_gcns = []
         in_dim = self.hid_dim
+        fflag = False
         for dim in self.op_fp_gcn_out_dims:
             self.op_f_gcns.append(
                 LayerType(
-                    in_dim, dim, self.op_embedding_dim, self.ensemble_fuse_method
+                    in_dim, dim, gcn_op_hw_dims, self.ensemble_fuse_method
                     # potential issue
                 )
             )
@@ -376,12 +365,17 @@ class GIN_Model(nn.Module):
         self.updateop_embedder = []
         in_dim = 0
         in_dim += self.op_embedding_dim
+        if self.device != None and not self.hwemb_to_mlp:
+            in_dim += self.hw_embedding_dim
         in_dim += self.replace_bgcn_mlp_dims[-1]
         for embedder_dim in self.updateopemb_dims:
             self.updateop_embedder.append(nn.Linear(in_dim, embedder_dim))
             self.updateop_embedder.append(nn.ReLU(inplace = False))
             in_dim = embedder_dim
-        self.updateop_embedder.append(nn.Linear(in_dim, self.op_embedding_dim))
+        oed = self.op_embedding_dim
+        if self.device != None and not self.hwemb_to_mlp:
+            oed += self.hw_embedding_dim
+        self.updateop_embedder.append(nn.Linear(in_dim, oed))
         self.updateop_embedder = nn.Sequential(*self.updateop_embedder)
 
         # combine y_1 and y_2
@@ -425,55 +419,16 @@ class GIN_Model(nn.Module):
             base.insert(1, self.input_node_emb.weight.unsqueeze(0).repeat([b_size, 1, 1]))
         return torch.cat(base, dim=1)
     
-    def _prepare_architecture(self, x_adj, x_ops):
-        archs = [[np.asarray(x.cpu()) for x in x_adj], [np.asarray(x.cpu()) for x in x_ops]]
-        adjs, x, op_emb, op_inds = self.embed_and_transform_arch(archs)
-        return adjs.to(self.cpu_gpu_device), x.to(self.cpu_gpu_device), op_emb.to(self.cpu_gpu_device), op_inds.to(self.cpu_gpu_device)
-
     def _ensure_2d(self, tensor):
         if len(tensor.shape) == 1:
             tensor = tensor.unsqueeze(0)
         return tensor
+        
+    def _concat_embedded_input(self, main_tensor, input_tensor, embedder):
+        input_tensor = embedder(input_tensor.to(self.cpu_gpu_device))
+        input_tensor, main_tensor = self._ensure_2d(input_tensor), self._ensure_2d(main_tensor)
+        return torch.cat((main_tensor, input_tensor), dim=-1)
 
-    def embed_and_transform_arch(self, archs):
-        adjs = self.input_op_emb.new([arch.T for arch in archs[0]])
-        op_inds = self.input_op_emb.new([arch for arch in archs[1]]).long()
-        op_embs = self.op_emb(op_inds)
-        b_size = op_embs.shape[0]
-        
-        if self.dual_gcn:
-            op_embs = op_embs[:, self.dinp:-1, :]
-            op_inds = op_inds[:, self.dinp:-1]
-            op_embs = self._concat_op_embs(b_size, op_embs, dual=True)
-            node_embs = self._concat_node_embs(b_size, dual=True)
-        else:
-            op_embs = op_embs[:, 1:-1, :]
-            op_inds = op_inds[:, 1:-1]
-            op_embs = self._concat_op_embs(b_size, op_embs)
-            node_embs = self._concat_node_embs(b_size)
-        
-        x = self.x_hidden(node_embs)
-        return adjs, x, op_embs, op_inds
-
-    def _forward_pass(self, x, adjs, auged_op_emb):
-        y = x
-        for i_layer, gcn in enumerate(self.gcns):
-            y = gcn(y, adjs, auged_op_emb)
-            if i_layer != self.num_gcn_layers - 1:
-                y = F.relu(y)
-            y = F.dropout(y, self.dropout, training = self.training)
-        return y
-        
-    def _forward_op_pass(self, x, adjs, auged_op_emb):
-        y = x
-        for i_layer, gcn in enumerate(self.op_f_gcns):
-            y = gcn(y, adjs, auged_op_emb)
-            if i_layer != self.num_op_fp_gcn_layers - 1:
-                y = F.relu(y)
-            y = F.dropout(y, self.dropout, training = self.training)
-        jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
-        in_embedding = torch.cat((auged_op_emb, jlz), dim=-1)
-        return in_embedding
     
     def _final_process(self, y, op_inds):
         if self.dual_gcn:
@@ -499,32 +454,77 @@ class GIN_Model(nn.Module):
     def embed_hw(self, hw_idx):
         hw_inds = self.input_op_emb.new([hw_ for hw_ in hw_idx.cpu().tolist()]).long()
         hw_embs = self.hw_emb(hw_inds)
-        # b_size = hw_embs.shape[0]
-        # if self.dual_gcn: #TODO test this
-        #     hw_embs = hw_embs[:, self.dinp:-1, :]
-        #     hw_inds = hw_inds[:, self.dinp:-1]
-        #     hw_embs = self._concat_hw_embs(b_size, hw_embs, dual=True)
-        # else:
-        #     hw_embs = hw_embs[:, 1:-1, :]
-        #     hw_inds = hw_inds[:, 1:-1]
-        #     hw_embs = self._concat_hw_embs(b_size, hw_embs)
+        b_size = hw_embs.shape[0]
+        if self.dual_gcn: #TODO test this
+            hw_embs = hw_embs[:, self.dinp:-1, :]
+            hw_inds = hw_inds[:, self.dinp:-1]
+            hw_embs = self._concat_hw_embs(b_size, hw_embs, dual=True)
+        else:
+            hw_embs = hw_embs[:, 1:-1, :]
+            hw_inds = hw_inds[:, 1:-1]
+            hw_embs = self._concat_hw_embs(b_size, hw_embs)
         return hw_embs, hw_inds
+
+    def _prepare_architecture(self, x_adj, x_ops):
+        archs = [[np.asarray(x.cpu()) for x in x_adj], [np.asarray(x.cpu()) for x in x_ops]]
+        adjs, x, op_emb, op_inds = self.embed_and_transform_arch(archs)
+        return adjs.to(self.cpu_gpu_device), x.to(self.cpu_gpu_device), op_emb.to(self.cpu_gpu_device), op_inds.to(self.cpu_gpu_device)
+
+
+    def _forward_pass(self, x, adjs, auged_op_emb):
+        y = x
+        for i_layer, gcn in enumerate(self.gcns):
+            y = gcn(y, adjs, auged_op_emb)
+            if i_layer != self.num_gcn_layers - 1:
+                y = F.relu(y)
+            y = F.dropout(y, self.dropout, training = self.training)
+        return y
+        
+    def _forward_op_pass(self, x, adjs, auged_op_emb):
+        y = x
+        for i_layer, gcn in enumerate(self.op_f_gcns):
+            y = gcn(y, adjs, auged_op_emb)
+            if i_layer != self.num_op_fp_gcn_layers - 1:
+                y = F.relu(y)
+            y = F.dropout(y, self.dropout, training = self.training)
+            # print(i_layer)
+        jlz = self.replace_bgcn_mlp(y[:, -1:, :].squeeze().unsqueeze(dim=1).repeat(1, y.shape[1], 1))
+        in_embedding = torch.cat((auged_op_emb, jlz), dim=-1)
+        return in_embedding
+        
+    def embed_and_transform_arch(self, archs):
+        adjs = self.input_op_emb.new([arch.T for arch in archs[0]])
+        op_inds = self.input_op_emb.new([arch for arch in archs[1]]).long()
+        op_embs = self.op_emb(op_inds)
+        b_size = op_embs.shape[0]
+        
+        if self.dual_gcn:
+            op_embs = op_embs[:, self.dinp:-1, :]
+            op_inds = op_inds[:, self.dinp:-1]
+            op_embs = self._concat_op_embs(b_size, op_embs, dual=True)
+            node_embs = self._concat_node_embs(b_size, dual=True)
+        else:
+            op_embs = op_embs[:, 1:-1, :]
+            op_inds = op_inds[:, 1:-1]
+            op_embs = self._concat_op_embs(b_size, op_embs)
+            node_embs = self._concat_node_embs(b_size)
+        
+        x = self.x_hidden(node_embs)
+        return adjs, x, op_embs, op_inds
 
     def _process_architecture(self, x, adjs, op_emb, op_inds, hw_idx=None):
         # Here, if device != None, concatenate per-vertex embedding with hw_emb_tab and hw_idx to op_emb
         if self.device != None and not self.hwemb_to_mlp:
             hw_embs, hw_inds = self.embed_hw(hw_idx)
             op_emb = torch.cat((op_emb, hw_embs), dim=-1)
-        op_emb = self._forward_op_pass(x, adjs, op_emb)
+        # else: # if condition is not met, op_emb still needs to maintain same dimensions
+        # this should be handled in the initializer for op_emb
+        op_emb = self._forward_op_pass(x, adjs, op_emb) 
         op_emb = self.updateop_embedder(op_emb)
+        # import pdb;     pdb.set_trace()
         y = self._forward_pass(x, adjs, op_emb)
         return self._final_process(y, op_inds)
         
-    def _concat_embedded_input(self, main_tensor, input_tensor, embedder):
-        input_tensor = embedder(input_tensor.to(self.cpu_gpu_device))
-        input_tensor, main_tensor = self._ensure_2d(input_tensor), self._ensure_2d(main_tensor)
-        return torch.cat((main_tensor, input_tensor), dim=-1)
-
     def forward(self, x_ops_1=None, x_adj_1=None, x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=None, hw_idx=None):
         adjs_1, x_1, op_emb_1, op_inds_1 = self._prepare_architecture(x_adj_1, x_ops_1)
         y_1 = self._process_architecture(x_1, adjs_1, op_emb_1, op_inds_1, hw_idx=hw_idx)

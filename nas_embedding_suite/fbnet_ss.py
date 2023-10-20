@@ -84,36 +84,52 @@ class FBNet:
             self.norm_zcp['zen'] = self.min_max_scaling(self.norm_zcp['zen'])
             self.zcp_dict = self.norm_zcp.T.to_dict()
     
-    def get_adjmlp_zcp(self, idx):
+    def get_adjmlp_zcp(self, idx, space=None, task=None):
         return np.concatenate([[xm/self.num_uniq_ops for xm in self.archs[idx]], np.asarray(self.get_zcp(idx))]).tolist()
     
-    def get_adj_op(self, idx):
+    def get_adj_op(self, idx, space=None, task=None):
         adj = np.eye(len(self.archs[idx])).tolist()
         op = self.archs[idx]
         # Convert integer array to one-hot array
         op = np.eye(len(self.primitives))[op].tolist()
         return {"module_adjacency": adj, "module_operations": op}
     
-    def get_valacc(self, idx):
+    def get_valacc(self, idx, space=None, task=None):
         return 0.0
 
-    def get_numitems(self, space=None):
+    def get_numitems(self, space=None, task=None):
         return 5000
     
-    def get_zcp(self, idx):
+    def get_zcp(self, idx, joint=None, space=None, task=None):
         return [self.zcp_dict["_".join([str(czs) for czs in self.archs[idx]])][ke] for ke in self.zcpn_list]
 
-    def get_latency(self, idx, space=None, device="1080ti_1"):
+    def get_latency(self, idx, device="1080ti_1", space=None, task=None):
         return self.latency_data[device][idx]
 
     def get_device_index(self, device="1080ti_1"):
         return self.device_key[device]
 
-    def get_arch2vec(self, idx, joint=None, space=None):
+    def get_arch2vec(self, idx, joint=None, space=None, task=None):
         return self.arch2vec_fbnet[idx]['feature'].tolist()
     
-    def get_params(self, idx):
+    def get_params(self, idx, space=None, task=None,):
         return self.unnorm_zcp_dict["_".join([str(czs) for czs in self.archs[idx]])]['params']
         
-    def get_cate(self, idx, joint=None, space=None):
+    def get_cate(self, idx, joint=None, space=None, task=None):
         return self.cate_fbnet['embeddings'][idx].tolist()
+        
+    def get_a2vcatezcp(self, idx, joint=None, space=None, task=None):
+        a2v = self.get_arch2vec(idx, joint=joint, space=space)
+        if not isinstance(a2v, list):
+            a2v = a2v.tolist()
+        cate = self.get_cate(idx, joint=joint, space=space)
+        if not isinstance(cate, list):
+            cate = cate.tolist()
+        zcp = self.get_zcp(idx, joint=joint, space=space)
+        if not isinstance(zcp, list):
+            zcp = zcp.tolist()
+        return a2v + cate + zcp15625
+    
+    def get_norm_w_d(self, idx, space=None):
+        return [0, 0]
+    

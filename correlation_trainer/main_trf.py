@@ -13,38 +13,15 @@ from pprint import pprint
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import pairwise_distances
 from sklearn.cluster import KMeans
+from device_task_list import HardwareDataset
 sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
-
-# python -i new_main.py --space nb101 --representation adj_gin_zcp --test_tagates --loss_type pwl --sample_sizes 72 --batch_size 8
-# python -i new_main.py --space nb201 --representation adj_gin_zcp --test_tagates --loss_type pwl --sample_sizes 40 --batch_size 8
 
 parser = argparse.ArgumentParser()
 ####################################################### Search Space Choices #######################################################
 parser.add_argument('--space', type=str, default='nb201')         # nb101, nb201, fbnet, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
-parser.add_argument('--source_devices', nargs='+', type=str, default=['1080ti_1','1080ti_32','1080ti_256','silver_4114','silver_4210r','samsung_a50','pixel3','essential_ph_1','samsung_s7'])
-    # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
-    #    'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
-    #    'fpga', 'gold_6226', 'gold_6240', 'mobile_cpu_snapdragon_450_cortex_a53_int8', 'mobile_cpu_snapdragon_675_kryo_460_int8', 'mobile_cpu_snapdragon_855_kryo_485_int8', \
-    #    'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_450_adreno_506_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', \
-    #    'mobile_gpu_snapdragon_855_adreno_640_int8', 'nwot_nb201_cifar10', 'params_nb201_cifar10', 'pixel2', 'pixel3', 'raspi4', 'samsung_a50', 'samsung_s7', 'silver_4114', \
-    #    'silver_4210r', 'titan_rtx_1', 'titan_rtx_256', 'titan_rtx_32', 'titanx_1', 'titanx_256', 'titanx_32', 'titanxp_1', 'titanxp_256', 'titanxp_32'
-    # If device is NOT None, space automatically becomes 'nb201'. 
-    # Sample selection, hw encoding of nodes, few shot HW only.
-    # Section 1   : Architectural
-    # Section 2.1 : Network Sampling
-    # Section 2.2 : Minimizing Pre-Training Samples
-    # Section 3.1 : Device Embedding
-    # Section 3.2 : Generalizability of predictor across 'n' devices vs fine tuning 
-    # Section 4   : Transfer Learning Across Hardware Devices (with accuracy as well?)
-    # Section 5   : Another SS? -> Can we look at NB101, NB301, NDS, TB101 if they have even a single device latency data?
-    # BRAINSTORM:
-    # For network sampling: use arch2vec, cate etc. [random, flops, params, arch2vec, cate, zcp, accuracy/latency (oracle)]
-    # For device embedding, each operation may require a unique device embedding.
-    #            So, use an embedding for each operation. (e.g. 5 ops, 5 embeddings per device) and concatenate appropriately.
+parser.add_argument("--task_index", type=int, default=0)
 parser.add_argument('--sampling_metric', type=str, default="random")
 parser.add_argument('--metric_device', type=str, default="titanx_256")
-parser.add_argument('--target_devices', nargs='+', type=str, default=['titan_rtx_256','gold_6226','fpga','pixel2','raspi4','eyeriss'])
-# parser.add_argument('--sample_size', type=int, default=900)
 parser.add_argument('--sample_sizes', nargs='+', type=int, default=[900]) # Default NB101
 parser.add_argument('--transfer_sample_sizes', nargs='+', type=int, default=[5,10,20])
 parser.add_argument('--task', type=str, default='class_scene')     # all tb101 tasks supported
@@ -79,6 +56,11 @@ parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--id', type=int, default=0)
 ####################################################################################################################################
 args = parser.parse_args()
+
+hw_taskset = HardwareDataset()
+args.source_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
+args.target_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
+
 # device = args.device
 if args.representation.__contains__("adj_gin_org"):
     args.representation = args.representation.replace("adj_gin_org", "adj_gin")
@@ -114,9 +96,6 @@ def seed_everything(seed: int):
 if args.seed is not None:
     seed_everything(args.seed)
 
-nb101_train_tagates_sample_indices, \
-    nb101_tagates_sample_indices = get_tagates_sample_indices(args)
-
 def flatten_mixed_list(pred_scores):
     flattened = []
     for sublist in pred_scores:
@@ -132,14 +111,14 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
     running_loss = 0.0
     for inputs, targets in dataloader:
         if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"]  or args.representation.__contains__("adj_mlp"):
-            if inputs.shape[0] == 1 and args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+            if inputs.shape[0] == 1 and args.space in ['nb101', 'fbnet', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 continue
-            elif inputs.shape[0] <= 2 and args.space not in ['nb101', 'nb201', 'nb301', 'tb101']:
+            elif inputs.shape[0] <= 2 and args.space not in ['nb101', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 continue
         else:
-            if inputs[0].shape[0] == 1 and args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+            if inputs[0].shape[0] == 1 and args.space in ['nb101', 'fbnet', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 continue
-            elif inputs[0].shape[0] <= 2 and args.space not in ['nb101', 'nb201', 'nb301', 'tb101']:
+            elif inputs[0].shape[0] <= 2 and args.space not in ['nb101', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 continue
         #### Params for PWL Loss
         accs = targets
@@ -166,7 +145,7 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
             X_input_2 = archs_2[0].to(dtype=torch.float32, device=args.cpu_gpu_device)
             s_2 = model(X_input_2).squeeze()
         elif args.representation in ["adj_gin"]:
-            if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+            if args.space in ['nb101', 'fbnet', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
                         torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
                         torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[1]))),
@@ -197,7 +176,7 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
                 X_adj_a_2, X_ops_a_2, X_adj_b_2, X_ops_b_2, norm_w_d_2, hw_idx = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device)
                 s_2 = model(x_ops_1=X_ops_a_2, x_adj_1=X_adj_a_2.to(torch.long), x_ops_2=X_ops_b_2, x_adj_2=X_adj_b_2.to(torch.long), zcp=None, norm_w_d=norm_w_d_2, hw_idx=hw_idx).squeeze()
         elif args.representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
-            if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+            if args.space in ['nb101', 'fbnet', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 archs_1 = [torch.stack(list((inputs[0][indx] for indx in ex_thresh_inds[1]))),
                         torch.stack(list((inputs[1][indx] for indx in ex_thresh_inds[1]))),
                         torch.stack(list((inputs[2][indx] for indx in ex_thresh_inds[1]))),
@@ -254,12 +233,12 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
         if args.representation in ["adj_mlp", "zcp", "arch2vec", "cate"] or args.representation.__contains__("adj_mlp"):
             pred_scores.append(model(reprs.to(args.cpu_gpu_device, dtype=torch.float32)).squeeze().detach().cpu().tolist())
         elif args.representation in ["adj_gin"]:
-            if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+            if args.space in ['nb101', 'fbnet', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
             else:
                 pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=reprs[3].to(args.cpu_gpu_device), x_adj_2=reprs[2].to(torch.long), zcp=None, norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
         elif args.representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
-            if args.space in ['nb101', 'nb201', 'nb301', 'tb101']:
+            if args.space in ['nb101', 'fbnet', 'fbnet', 'nb201', 'nb301', 'tb101']:
                 pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=None, x_adj_2=None, zcp=reprs[2].to(args.cpu_gpu_device), norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
             else:
                 pred_scores.append(model(x_ops_1=reprs[1].to(args.cpu_gpu_device), x_adj_1=reprs[0].to(torch.long), x_ops_2=reprs[3].to(args.cpu_gpu_device), x_adj_2=reprs[2].to(torch.long), zcp=reprs[4].to(args.cpu_gpu_device), norm_w_d=reprs[-2].to(args.cpu_gpu_device), hw_idx=reprs[-1].to(args.cpu_gpu_device)).squeeze().detach().cpu().tolist())
@@ -278,6 +257,8 @@ if args.space in ['Amoeba', 'DARTS', 'DARTS_fix-w-d', 'DARTS_lr-wd', 'ENAS', 'EN
     from nas_embedding_suite.nds_ss import NDS as EmbGenClass
 elif args.space in ['nb101', 'nb201', 'nb301']:
     exec("from nas_embedding_suite.nb{}_ss import NASBench{} as EmbGenClass".format(args.space[-3:], args.space[-3:]))
+elif args.space in ['fbnet']:
+    from nas_embedding_suite.fbnet_ss import FBNet as EmbGenClass
 elif args.space in ['tb101']:
     from nas_embedding_suite.tb101_micro_ss import TransNASBench101Micro as EmbGenClass
 
@@ -293,7 +274,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
         if representation.__contains__("gin") == False: # adj_mlp, zcp, arch2vec, cate --> FullyConnectedNN
             if representation.__contains__("adj_mlp"): # adj_mlp --> FullyConnectedNN
                 for i in tqdm(sample_indexes):
-                    if space not in ["nb101", "nb201", "nb301", "tb101"]:
+                    if space not in ["nb101", "fbnet", "nb201", "nb301", "tb101"]:
                         adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
                         norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
                         norm_w_d = np.asarray(norm_w_d).flatten()
@@ -324,7 +305,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
             else:                           # zcp, arch2vec, cate --> FullyConnectedNN
                 for i in tqdm(sample_indexes):
                     hw_idx = np.asarray([embedding_gen.get_device_index(device),] * 8).flatten()
-                    if space in ['nb101', 'nb201', 'nb301']:
+                    if space in ['nb101', 'fbnet', 'nb201', 'nb301']:
                         exec('representations.append(np.concatenate((embedding_gen.get_{}(i), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten(), hw_idx)))'.format(representation, space))
                     elif space=='tb101':
                         exec('representations.append(np.concatenate((embedding_gen.get_{}(i, "{}"), np.asarray(embedding_gen.get_norm_w_d(i, space="{}")).flatten(), hw_idx)))'.format(representation, args.task, args.task))
@@ -333,7 +314,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
                     if space=='tb101':
                         if device == None: accs.append(embedding_gen.get_valacc(i, task=args.task));
                         else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
-                    elif space not in ['nb101', 'nb201', 'nb301']:
+                    elif space not in ['nb101', 'fbnet', 'nb201', 'nb301']:
                         if device == None: accs.append(embedding_gen.get_valacc(i, space=space));
                         else: accs.append(embedding_gen.get_latency(i, device=device, space=space))
                     else:
@@ -344,7 +325,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
             assert representation in ["adj_gin", "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"], "Representation Not Supported!"
             if args.representation == "adj_gin":
                 for i in tqdm(sample_indexes):
-                    if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
+                    if space not in ['nb101', 'fbnet', 'nb201', 'nb301', 'tb101']:
                         adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
                         norm_w_d = embedding_gen.get_norm_w_d(i, space=space)
                         norm_w_d = np.asarray(norm_w_d).flatten()
@@ -369,7 +350,7 @@ def get_dataloader(args, embedding_gen, space, representation, mode, indexes, de
                         representations.append((torch.Tensor(adj_mat), torch.Tensor(op_mat), torch.Tensor(norm_w_d), torch.Tensor(hw_idx)))
             else: # "adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate"
                 for i in tqdm(sample_indexes):
-                    if space not in ['nb101', 'nb201', 'nb301', 'tb101']:
+                    if space not in ['nb101', 'fbnet', 'nb201', 'nb301', 'tb101']:
                         adj_mat_norm, op_mat_norm, adj_mat_red, op_mat_red = embedding_gen.get_adj_op(i, space=space).values()
                         method_name = 'get_{}'.format(args.representation.split("_")[-1])
                         method_to_call = getattr(embedding_gen, method_name)
@@ -496,7 +477,7 @@ for tr_ in range(args.num_trials):
         train_samps = get_distinct_index(args, embedding_gen, args.space, sample_count, args.sampling_metric, args.metric_device)
         # Create a train data-loader with 'sample_count' samples of each 'source_device'
         train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=train_samps, devices=args.source_devices, batch_specified=128)
-        total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
+        total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'fbnet', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
         # test_samples = list(set(range(total_samples - 1)) - set(train_indexes))
         test_samples = list(set(range(total_samples)))
         test_dataloader, test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=args.source_devices)
@@ -506,13 +487,13 @@ for tr_ in range(args.num_trials):
         # import pdb; pdb.set_trace()
 
         if representation == "adj_gin":
-            dual_gcn = args.space not in ["nb101", "nb201", "nb301", "tb101"]
+            dual_gcn = args.space not in ["nb101", "fbnet", "nb201", "nb301", "tb101"]
             input_zcp = False
             model = create_gin_model(input_dim, 13, dual_gcn, input_zcp, args)
 
         elif representation in ["adj_gin_zcp", "adj_gin_arch2vec", "adj_gin_cate", "adj_gin_a2vcatezcp"]:
             num_zcps = next(iter(train_dataloader))[0][-3].shape[1]
-            dual_gcn = args.space not in ["nb101", "nb201", "nb301", "tb101"]
+            dual_gcn = args.space not in ["nb101", "fbnet", "nb201", "nb301", "tb101"]
             input_zcp = True,
             model = create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args)
 
