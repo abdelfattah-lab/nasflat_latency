@@ -211,6 +211,30 @@ if __name__ == '__main__':
                     'test_accuracy': archs[str(i)]['test_accuracy'],
                     'training_time': archs[str(i)]['training_time']
                 }
+        elif args.dataset=="fbnet":
+            with open("data/fbnet.json") as f:
+                archs = json.load(f)
+            for i in tqdm(range(int(len(archs) * args.n_percent))):
+                train_data[i] = {
+                    'index': i,
+                    'adj': archs[str(i)]['module_adjacency'],
+                    'ops': archs[str(i)]['module_operations'],
+                    'params': archs[str(i)]['parameters'],
+                    'validation_accuracy': archs[str(i)]['validation_accuracy'],
+                    'test_accuracy': archs[str(i)]['test_accuracy'],
+                    'training_time': archs[str(i)]['training_time']
+                }
+            for i in range(int(len(archs) * args.n_percent), len(archs)):
+                test_data[i - int(len(archs) * args.n_percent)] = {
+                    'index': i - int(len(archs) * args.n_percent),
+                    'adj': archs[str(i)]['module_adjacency'],
+                    'ops': archs[str(i)]['module_operations'],
+                    'params': archs[str(i)]['parameters'],
+                    'validation_accuracy': archs[str(i)]['validation_accuracy'],
+                    'test_accuracy': archs[str(i)]['test_accuracy'],
+                    'training_time': archs[str(i)]['training_time']
+                }
+
 
         save_dir = os.path.join('data/', args.dataset)
         if not os.path.exists(save_dir):

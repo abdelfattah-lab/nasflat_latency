@@ -9,6 +9,8 @@ python preprocessing/gen_json.py
 python preprocessing/gen_json_nb201.py
 # NASBench301
 python preprocessing/gen_json_darts.py
+# NASBench301
+python preprocessing/gen_json_fbnet.py
 # NDS Normal Cell
 python preprocessing/gen_json_nds.py --type normal  --search_space Amoeba 
 python preprocessing/gen_json_nds.py --type normal  --search_space PNAS_fix-w-d 
@@ -55,6 +57,10 @@ python preprocessing/data_generate.py --dataset nasbench201 --flag build_pair --
 # NASBench301
 python preprocessing/data_generate.py --dataset nasbench301 --flag extract_seq
 python preprocessing/data_generate.py --dataset nasbench301 --flag build_pair --k 2 --d 2000000 --metric flops
+
+# FBNet
+python preprocessing/data_generate.py --dataset fbnet --flag extract_seq
+python preprocessing/data_generate.py --dataset fbnet --flag build_pair --k 2 --d 2000000 --metric params
 
 # NDS
 python preprocessing/data_generate.py --dataset nds --search_space Amoeba --type normal --flag extract_seq
@@ -134,6 +140,7 @@ bash run_scripts/pretrain_nasbench201.sh
 bash run_scripts/pretrain_nasbench301.sh
 bash run_scripts/pretrain_nds.sh
 bash run_scripts/pretrain_transnasbench101.sh
+bash run_scripts/pretrain_fbnet.sh
 
 ####### CATE Extraction #######
 
@@ -146,6 +153,8 @@ python inference/inference.py --pretrained_path model/nasbench101_model_best.pth
 python inference/inference.py --pretrained_path model/nasbench201_model_best.pth.tar --train_data data/nasbench201/train_data.pt --valid_data data/nasbench201/test_data.pt --dataset nasbench201 --search_space nasbench201 --n_vocab 7 --graph_d_model 32 --pair_d_model 32
 # NASBench301
 python inference/inference.py --pretrained_path model/nasbench301_model_best.pth.tar --train_data data/nasbench301/train_data.pt --valid_data data/nasbench301/test_data.pt --dataset nasbench301 --search_space nasbench301 --n_vocab 11 --graph_d_model 32 --pair_d_model 32
+# FBNet
+python inference/inference.py --pretrained_path model/fbnet_model_best.pth.tar --train_data data/fbnet/train_data.pt --valid_data data/fbnet/test_data.pt --dataset fbnet --search_space fbnet --n_vocab 9 --graph_d_model 32 --pair_d_model 32
 # NDS
 python inference/inference.py --pretrained_path model/nds_Amoeba_normal_checkpoint_Epoch_10.pth.tar --train_data data/nds/nds_Amoeba_normal_train_data.pt --valid_data data/nds/nds_Amoeba_normal_test_data.pt --dataset nds --search_space Amoeba --type normal --n_vocab 11 --graph_d_model 16 --pair_d_model 16
 python inference/inference.py --pretrained_path model/nds_Amoeba_reduce_checkpoint_Epoch_10.pth.tar --train_data data/nds/nds_Amoeba_reduce_train_data.pt --valid_data data/nds/nds_Amoeba_reduce_test_data.pt --dataset nds --search_space Amoeba --type reduce --n_vocab 11 --graph_d_model 16 --pair_d_model 16

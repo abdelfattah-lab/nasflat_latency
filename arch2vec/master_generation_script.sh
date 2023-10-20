@@ -9,7 +9,8 @@ python preprocessing/gen_json.py
 python preprocessing/nasbench201_json.py     
 # NASBench301
 python preprocessing/nasbench301_json.py     
-
+# FBNet
+python preprocessing/fbnet_json.py
 # NDS Normal Cell
 python preprocessing/nds_json.py --search_space Amoeba --type normal 
 python preprocessing/nds_json.py --search_space PNAS_fix-w-d --type normal 
@@ -52,6 +53,8 @@ python -i  models/pretraining_nasbench101.py  --input_dim 5 --hops 5 --dim 32 --
 python -i models/pretraining_nasbench201.py  --input_dim 7 --hops 5 --epochs 10 --bs 32 --cfg 4 --seed 4 --name nasbench201
 # NASBench301
 python -i models/pretraining_nasbench301.py  --input_dim 11 --hops 5 --dim 32 --cfg 4 --bs 32 --epochs 8 --seed 1 --name nasbench301
+# FBNet
+python -i  models/pretraining_fbnet.py  --input_dim 9 --hops 5 --dim 32 --cfg 4 --bs 32 --epochs 50 --seed 1 --name fbnet
 # NDS Normal Cell
 python models/pretraining_nds.py --hops 5 --dim 16 --cfg 4 --bs 32 --epochs 100 --seed 1 --name nds --search_space Amoeba --type normal
 python models/pretraining_nds.py --hops 5 --dim 16 --cfg 4 --bs 32 --epochs 100 --seed 1 --name nds --search_space PNAS_fix-w-d --type normal
@@ -92,6 +95,8 @@ bash run_scripts/extract_arch2vec.sh
 bash run_scripts/extract_arch2vec_nasbench201.sh
 # NASBench301
 bash run_scripts/extract_arch2vec_nasbench301.sh
+# FBNet
+bash run_scripts/extract_arch2vec_fbnet.sh
 # NDS
 bash run_scripts/extract_arch2vec_nds.sh
 # TransNASBench-101 Micro

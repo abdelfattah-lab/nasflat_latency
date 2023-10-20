@@ -20,7 +20,7 @@ sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
 
 parser = argparse.ArgumentParser()
 ####################################################### Search Space Choices #######################################################
-parser.add_argument('--space', type=str, default='nb201')         # nb101, nb201, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
+parser.add_argument('--space', type=str, default='nb201')         # nb101, nb201, fbnet, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
 parser.add_argument('--source_devices', nargs='+', type=str, default=['1080ti_1','1080ti_32','1080ti_256','silver_4114','silver_4210r','samsung_a50','pixel3','essential_ph_1','samsung_s7'])
     # '1080ti_1', '1080ti_256', '1080ti_32', '2080ti_1', '2080ti_256', '2080ti_32', 'desktop_cpu_core_i7_7820x_fp32', 'desktop_gpu_gtx_1080ti_fp32',      \
     #    'embedded_gpu_jetson_nano_fp16', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'essential_ph_1', 'eyeriss', 'flops_nb201_cifar10', \
@@ -87,7 +87,7 @@ else:
     from models_abl_p2 import GIN_Model, FullyConnectedNN
 
 if args.source_devices is not None:
-    assert args.space in ["nb201"], "If device is not None, space MUST be nb201."
+    assert args.space in ["nb201", "fbnet"], "If device is not None, space MUST be nb201."
 
 assert args.metric_device not in args.source_devices, "Metric device cannot be in source devices."
 assert args.metric_device not in args.target_devices, "Metric device cannot be in target devices."

@@ -14,6 +14,8 @@ def prepare_graph(graph, config):
         Xs, Rs, valid_accs, test_accs, times = zip(*graph)
     elif config.dataset.split('_')[0] == 'nasbench201':
         Xs, Rs, valid_accs, test_accs, times = zip(*graph)
+    elif config.dataset.split('_')[0] == 'fbnet':
+        Xs, Rs, valid_accs, test_accs, times = zip(*graph)
     elif config.dataset.split('_')[0] == 'nasbench301':
         Xs, Rs, genos, predicted_accs, predicted_runtimes = zip(*graph)
     elif config.dataset.split('_')[0] == 'nds':
@@ -46,6 +48,8 @@ def prepare_graph(graph, config):
     if config.dataset.split('_')[0] == 'nasbench101':
         return torch.stack(inputs), torch.stack(masks), valid_accs, test_accs, times
     elif config.dataset.split('_')[0] == 'nasbench201':
+        return torch.stack(inputs), torch.stack(masks), valid_accs, test_accs, times
+    elif config.dataset.split('_')[0] == 'fbnet':
         return torch.stack(inputs), torch.stack(masks), valid_accs, test_accs, times
     elif config.dataset.split('_')[0] == 'nasbench301':
         return torch.stack(inputs), torch.stack(masks), genos, predicted_accs, predicted_runtimes
@@ -91,6 +95,11 @@ def inference(config):
                 test_acc = dataset[i]['test_accuracy']
                 time = dataset[i]['training_time']
                 data.append([X, R, valid_acc, test_acc, time])
+            elif config.dataset.split('_')[0] == 'fbnet':
+                valid_acc = dataset[i]['validation_accuracy']
+                test_acc = dataset[i]['test_accuracy']
+                time = dataset[i]['training_time']
+                data.append([X, R, valid_acc, test_acc, time])
             elif config.dataset.split('_')[0] == 'all':
                 valid_acc = dataset[i]['validation_accuracy']
                 test_acc = dataset[i]['test_accuracy']
@@ -128,6 +137,8 @@ def inference(config):
         X, maskX, valid_accs, test_accs, times = prepare_graph(data, config)
     elif config.dataset.split('_')[0] == 'nasbench301':
         X, maskX, genotypes, predicted_accs, predicted_runtimes = prepare_graph(data, config)
+    elif config.dataset.split('_')[0] == 'fbnet':
+        X, maskX, valid_accs, test_accs, times = prepare_graph(data, config)
     elif config.dataset.split("_")[0] =='nds':
         X, maskX, valid_accs, test_accs, times = prepare_graph(data, config)
     elif config.dataset.split("_")[0] =='transnasbench101':
@@ -164,6 +175,8 @@ def inference(config):
         pretrained_embeddings = {'embeddings': embeddings, 'valid_accs': valid_accs, 'test_accs': test_accs, 'times': times}
     elif config.dataset.split('_')[0] == 'nasbench201':
         pretrained_embeddings = {'embeddings': embeddings, 'valid_accs': valid_accs, 'test_accs': test_accs, 'times': times}
+    elif config.dataset.split('_')[0] == 'fbnet':
+        pretrained_embeddings = {'embeddings': embeddings, 'valid_accs': valid_accs, 'test_accs': test_accs, 'times': times}
     elif config.dataset.split('_')[0] == 'nasbench301':
         pretrained_embeddings = {'embeddings': embeddings, 'genotypes': genotypes, 'predicted_accs': predicted_accs, 'predicted_runtimes': predicted_runtimes}
     elif config.dataset.split('_')[0] == 'transnasbench101':
@@ -179,7 +192,6 @@ def inference(config):
     else:
         raise NotImplementedError()
     
-    import pdb; pdb.set_trace()
     if config.dataset.split("_")[0]=='nds':
         torch.save(pretrained_embeddings, 'cate_' + config.dataset + "_" + config.search_space + "_" + config.type + "_" + '.pt')
     elif config.dataset.split("_")[0]=='transnasbench101':
