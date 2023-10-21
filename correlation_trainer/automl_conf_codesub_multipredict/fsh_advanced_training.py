@@ -20,14 +20,19 @@ import pickle
 import csv
 
 
+sys.path.append('./../')
 
+from device_task_list import HardwareDataset
 
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_idx', type=int, default=0)
-parser.add_argument('--name_desc', type=str, default="multipredict_default") # Default config idx, do NOT change.
-parser.add_argument('--train_devices', nargs='+', type=str, default=['1080ti_1','1080ti_32','1080ti_256','silver_4114','silver_4210r','samsung_a50','pixel3','essential_ph_1','samsung_s7'])
-parser.add_argument('--transfer_devices', nargs='+', type=str, default=['titan_rtx_256','gold_6226','fpga','pixel2','raspi4','eyeriss'])
+parser.add_argument('--name_desc', type=str, default="multipredict_default") 
+parser.add_argument('--representation', type=str, default="zcp_vec") 
+parser.add_argument('--space', type=str, default="fbnet")
+parser.add_argument("--task_index", type=int, default=0)
+# parser.add_argument('--train_devices', nargs='+', type=str, default=['1080ti_1','1080ti_32','1080ti_256','silver_4114','silver_4210r','samsung_a50','pixel3','essential_ph_1','samsung_s7'])
+# parser.add_argument('--transfer_devices', nargs='+', type=str, default=['titan_rtx_256','gold_6226','fpga','pixel2','raspi4','eyeriss'])
 parser.add_argument('--emb_transfer_samples', type=int, default=10)
 parser.add_argument('--fsh_mc_sampling', type=int, default=10)
 parser.add_argument('--dev_train_samples', type=int, default=900)
@@ -47,11 +52,10 @@ torch.cuda.manual_seed(seed)
 print("Config IDX: ", str_args.config_idx)
 all_config = read_config('base_config.json')
 
-print(all_config)
-# Append config_idx and all_config to a csv
-with open('./config_mapper.log', 'a') as f:
-    f.write(str(str_args.config_idx) + "," + str(os.environ['SLURM_JOB_ID']) + "," + ','.join([str(x) for x in all_config]))
-    f.write("\n")
+hw_taskset = HardwareDataset()
+# args.space = 'nb201' if search_space=='nasbench201' else 'fbnet'
+str_args.train_devices = hw_taskset.get_data(str_args.space, str_args.task_index)["train"]
+str_args.transfer_devices = hw_taskset.get_data(str_args.space, str_args.task_index)["test"]
 
 (representation, test_idx, search_space, num_trials, report, s, emb_transfer_samples, fsh_sampling_strat, fsh_mc_sampling, dev_train_samples, train_batchsize, test_batchsize, epochs, transfer_epochs, \
 mixed_training, mixed_train_weight, hw_emb_dim, gcn_layer_size, nn_emb_dim, feat_layer_size, \
@@ -59,12 +63,34 @@ feat_depth, loss_function, train_device_list, transfer_device_list, use_specific
 transfer_specific_lr, embedding_type, closest_correlator, embedding_transfer, freeze_non_embedding, \
 adapt_new_embedding, pre_train_transferset, device, cpu_map) = all_config
 
+
+all_config = list(all_config)
+all_config[2] = 'nasbench201' if str_args.space=='nb201' else 'fbnet'
+all_config[22] = ','.join(str_args.train_devices)
+train_device_list = ','.join(str_args.train_devices)
+all_config[23] = ','.join(str_args.transfer_devices)
+transfer_device_list = ','.join(str_args.transfer_devices)
+all_config[12] = str_args.epochs
+all_config[13] = str_args.transfer_epochs
+all_config[3] = str_args.num_trials
+all_config[9] = str_args.dev_train_samples
+all_config[8] = str_args.fsh_mc_sampling
+all_config[5] = str_args.emb_transfer_samples
+all_config = tuple(all_config)
+
+search_space = str_args.space
 emb_transfer_samples   =  str_args.emb_transfer_samples
 fsh_mc_sampling = str_args.fsh_mc_sampling
 dev_train_samples = str_args.dev_train_samples
 num_trials = str_args.num_trials
 epochs = str_args.epochs
 transfer_epochs = str_args.transfer_epochs
+
+print(all_config)
+# Append config_idx and all_config to a csv
+with open('./config_mapper.log', 'a') as f:
+    f.write(str(str_args.config_idx) + "," + str(os.environ['SLURM_JOB_ID']) + "," + ','.join([str(x) for x in all_config]))
+    f.write("\n")
 
 mc_sampling = fsh_mc_sampling
 

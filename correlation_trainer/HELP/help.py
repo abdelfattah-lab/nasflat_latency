@@ -25,6 +25,9 @@ from net import InferenceNetwork
 from loader import Data
 from utils import *
 
+import sys
+sys.path.append("..")
+from device_task_list import HardwareDataset
 
 
 class HELP:
@@ -36,11 +39,22 @@ class HELP:
         self.load_path = args.load_path
         # Log
         self.save_summary_steps = args.save_summary_steps
+        hw_taskset = HardwareDataset()
         self.save_path = args.save_path
         # Data & Meta-learning Settings
-        self.meta_train_devices = args.meta_train_devices
+        # self.meta_train_devices = args.meta_train_devices
         self.meta_valid_devices = args.meta_valid_devices
-        self.meta_test_devices = args.meta_test_devices
+        # self.meta_test_devices = args.meta_test_devices
+        args.space = 'nb201' if args.search_space=='nasbench201' else 'fbnet'
+        self.meta_train_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
+        self.meta_test_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
+        for idx_, device in enumerate(self.meta_valid_devices):
+            if device in meta_test_devices:
+                # remove element at that idx_
+                self.meta_valid_devices.pop(idx_)
+        hw_taskset = HardwareDataset()
+        args.source_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
+        args.target_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
         self.num_inner_tasks = args.num_inner_tasks
         self.meta_lr = args.meta_lr
         self.num_episodes = args.num_episodes

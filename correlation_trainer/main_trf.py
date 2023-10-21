@@ -13,7 +13,6 @@ from pprint import pprint
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import pairwise_distances
 from sklearn.cluster import KMeans
-from device_task_list import HardwareDataset
 sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
 
 parser = argparse.ArgumentParser()
@@ -57,6 +56,7 @@ parser.add_argument('--id', type=int, default=0)
 ####################################################################################################################################
 args = parser.parse_args()
 
+from device_task_list import HardwareDataset
 hw_taskset = HardwareDataset()
 args.source_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
 args.target_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
@@ -607,7 +607,7 @@ if not os.path.exists('correlation_results/{}'.format(args.name_desc)):
 
 filename = f'correlation_results/{args.name_desc}/{args.space}_samp_eff.csv'
 
-header = "uid,name_desc,seed,space,source_devices,sampling_metric,metric_device,target_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
+header = "uid,name_desc,task_index,seed,space,source_devices,sampling_metric,metric_device,target_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
 opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device,hwemb_to_mlp,transfer_hwemb,spr,kdt,spr_std,kdt_std"
 # opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
 if not os.path.isfile(filename):
@@ -623,6 +623,7 @@ with open(filename, 'a') as f:
                 vals = [
                     str(uid),
                     str(args.name_desc),
+                    str(args.task_index),
                     str(args.seed),
                     str(args.space),
                     str(source_device_str),
@@ -652,3 +653,69 @@ with open(filename, 'a') as f:
                     str(np.std(results_dict[target_device][sample_size][transfer_sample_size]['kdt']))
                     ]
                 f.write("%s\n" % ','.join(vals))
+
+
+
+
+if not os.path.exists('correlation_results/aggr_{}'.format(args.name_desc)):
+    os.makedirs('correlation_results/aggr_{}'.format(args.name_desc))
+
+filename = f'correlation_results/aggr_{args.name_desc}/{args.space}_samp_eff.csv'
+
+header = "uid,name_desc,seed,space,source_devices,sampling_metric,task_index,metric_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
+opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device,hwemb_to_mlp,transfer_hwemb,spr,kdt,spr_std,kdt_std"
+# opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
+if not os.path.isfile(filename):
+    with open(filename, 'w') as f:
+        f.write(header + "\n")
+# results_dict[tfdevice][sample_count][transfer_count]['spr'].append(sum(tt_spr_l5)/len(tt_spr_l5))
+source_device_str = "|".join(args.source_devices)
+# sample_sizes_l = "|".join(args.sample_sizes)
+with open(filename, 'a') as f:
+    for sample_size in args.sample_sizes:
+        for transfer_sample_size in args.transfer_sample_sizes:
+            avg_spr = []
+            avg_kdt = []
+            avg_spr_std = []
+            avg_kdt_std = []
+            for target_device in args.target_devices:
+                avg_spr.append(np.mean(results_dict[target_device][sample_size][transfer_sample_size]['spr']))
+                avg_kdt.append(np.mean(results_dict[target_device][sample_size][transfer_sample_size]['kdt']))
+                avg_spr_std.append(np.std(results_dict[target_device][sample_size][transfer_sample_size]['spr']))
+                avg_kdt_std.append(np.std(results_dict[target_device][sample_size][transfer_sample_size]['kdt']))
+            avg_spr = np.mean(avg_spr)
+            avg_kdt = np.mean(avg_kdt)
+            avg_spr_std = np.mean(avg_spr_std)
+            avg_kdt_std = np.mean(avg_kdt_std)
+            vals = [
+                str(uid),
+                str(args.name_desc),
+                str(args.seed),
+                str(args.space),
+                str(source_device_str),
+                str(args.sampling_metric),
+                str(args.task_index),
+                str(args.metric_device),
+                str(sample_size),
+                str(transfer_sample_size),
+                str(args.representation),
+                str(args.gnn_type),
+                str(args.num_trials),
+                str("_".join([str(zlx) for zlx in args.op_fp_gcn_out_dims])),
+                str("_".join([str(zlx) for zlx in args.forward_gcn_out_dims])),
+                str("_".join([str(zlx) for zlx in args.replace_bgcn_mlp_dims])),
+                str(args.ensemble_fuse_method),
+                str("_".join([str(zlx) for zlx in args.fb_conversion_dims])),
+                str(args.lr),
+                str(args.weight_decay),
+                str(args.epochs),
+                str(args.transfer_epochs),
+                str(args.cpu_gpu_device), # use results_dict[tfdevice][sample_count][transfer_count]['spr'].append(sum(tt_spr_l5)/len(tt_spr_l5))
+                str(args.hwemb_to_mlp),
+                str(args.transfer_hwemb),
+                str(avg_spr),
+                str(avg_kdt),
+                str(avg_spr_std),
+                str(avg_kdt_std)
+                ]
+            f.write("%s\n" % ','.join(vals))

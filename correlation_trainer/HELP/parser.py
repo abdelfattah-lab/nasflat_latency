@@ -21,6 +21,7 @@ def get_parser():
     parser.add_argument('--gpu', type=str, default='0', help='set visible gpus')
     parser.add_argument('--seed', type=int, default=3, help='set seed')
     parser.add_argument('--num_trials', type=int, default=3, help='number of trials')
+    parser.add_argument("--task_index", type=int, default=0)
     parser.add_argument('--mode', type=str, default=None, help='meta-train|meta-test|nas')
     parser.add_argument('--main_path', type=str, default='.')
     parser.add_argument('--name_desc', type=str, default='help_test')

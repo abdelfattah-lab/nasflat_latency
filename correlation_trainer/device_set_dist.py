@@ -142,9 +142,9 @@ plt.savefig('device_corr_matrix.png', dpi=300)
 
 # from nas_embedding_suite.fbnet_ss import FBNet
 
-# fbnet_api = FBNet()
+fbnet_api = FBNet()
 
-# fbnetlatdict = fbnet_api.latency_data
+fbnetlatdict = fbnet_api.latency_data
 
 # # for each key in fbnetlatdict, calculate spearmanr of fbnetlatdict[key] with every other key
 # fbnetcorrs = {}
