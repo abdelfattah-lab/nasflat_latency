@@ -110,7 +110,8 @@ devices = devlist['nb201'] + devlist['fbnet']
 devices = set([item for sublist in devices for item in sublist.replace("|", ",").split(',')])
 
 print(generate_latex_table(devices, devlist))
-
+# flatten list of list called 'dl'
+# dl = [item for sublist in devlist for item in sublist.split('|')]
 # I have 4 different 'device sets', each device set has a 'train' and 'test'. The train and test set is demarcated by '|', and the type of devices in each set is separated by ','.
 # I have this information for two data-sets, NASBench-201 and FBNet. They are provided below:
 # NASBench201 =[

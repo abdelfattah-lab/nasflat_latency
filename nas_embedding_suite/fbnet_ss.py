@@ -128,7 +128,7 @@ class FBNet:
         zcp = self.get_zcp(idx, joint=joint, space=space)
         if not isinstance(zcp, list):
             zcp = zcp.tolist()
-        return a2v + cate + zcp15625
+        return a2v + cate + zcp
     
     def get_norm_w_d(self, idx, space=None):
         return [0, 0]

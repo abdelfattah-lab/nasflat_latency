@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J helptest
+#SBATCH -J multipredict
 #SBATCH -o /home/ya255/projects/flan_hardware/correlation_trainer/large_scale_run_logs/%j.out
 #SBATCH -e /home/ya255/projects/flan_hardware/correlation_trainer/large_scale_run_logs/%j.err
 #SBATCH -N 1
@@ -16,6 +16,6 @@ source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh
 
 conda activate unr
 
-cd /home/ya255/projects/flan_hardware/correlation_trainer/HELP
+cd /home/ya255/projects/flan_hardware/correlation_trainer/automl_conf_codesub_multipredict
 
-python main.py --gpu 0 --mode 'meta-train' --seed 42 --num_trials 3 --name_desc 'help_baselines' --num_meta_train_samples 900 --mc_sampling 10 --num_episodes 2000 --task_index 4 --search_space fbnet --num_samples 10
+python fsh_advanced_training.py --name_desc multipredict_baseline --task_index 4 --space fbnet --emb_transfer_samples 20

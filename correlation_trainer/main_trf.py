@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--space', type=str, default='nb201')         # nb101, nb201, fbnet, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
 parser.add_argument("--task_index", type=int, default=0)
 parser.add_argument('--sampling_metric', type=str, default="random")
-parser.add_argument('--metric_device', type=str, default="titanx_256")
+parser.add_argument('--metric_device', type=str, default="titanxp_1")
 parser.add_argument('--sample_sizes', nargs='+', type=int, default=[900]) # Default NB101
 parser.add_argument('--transfer_sample_sizes', nargs='+', type=int, default=[5,10,20])
 parser.add_argument('--task', type=str, default='class_scene')     # all tb101 tasks supported
@@ -71,8 +71,16 @@ else:
 if args.source_devices is not None:
     assert args.space in ["nb201", "fbnet"], "If device is not None, space MUST be nb201."
 
-assert args.metric_device not in args.source_devices, "Metric device cannot be in source devices."
-assert args.metric_device not in args.target_devices, "Metric device cannot be in target devices."
+all_avbl_devices = args.source_devices + args.target_devices
+fb_nb_common_devices = ['gold_6240', 'pixel2', 'fpga', 'titanxp_32', 'gold_6226', '2080ti_1', '1080ti_1', '2080ti_32', 'titanx_1', 'pixel3', 'silver_4210r', 'samsung_s7', 'eyeriss', '1080ti_32', 'raspi4', 'titan_rtx_32', 'titanxp_1', 'silver_4114', 'samsung_a50', 'titan_rtx_1', 'titanx_32', 'essential_ph_1']
+allowed_devs = list(set(fb_nb_common_devices) - set(all_avbl_devices))
+if len(allowed_devs) != 0:
+    args.metric_device = random.choice(allowed_devs)
+else:
+    args.metric_device = 'titanxp_1'
+
+# assert args.metric_device not in args.source_devices, "Metric device cannot be in source devices."
+# assert args.metric_device not in args.target_devices, "Metric device cannot be in target devices."
 
 sample_tests, transfer_sample_tests = {}, {}
 sample_tests[args.space] = args.sample_sizes
