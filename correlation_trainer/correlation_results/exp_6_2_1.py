@@ -42,17 +42,7 @@ def generate_latex_table_from_csv(file_path):
         "formatted_spr": "SPR",
     }
     df = df.rename(columns=name_dict)
-    # Generate the LaTeX table
-    # latex_table = df.pivot_table(index="task_index", 
-    #                          columns=["hwemb_to_mlp", "transfer_hwemb"], 
-    #                          values="formatted_spr", 
-    #                          aggfunc="first").T.to_latex(escape=False)
     latex_table = df.to_latex(escape=False)
-    # # Generate the LaTeX table
-    # latex_table = df.pivot_table(index="task_index", 
-    #                          columns=["hwemb_to_mlp", "transfer_hwemb"], 
-    #                          values="formatted_spr", 
-    #                          aggfunc="first").T.to_latex(escape=False)
 
     return latex_table
 
@@ -63,3 +53,14 @@ print(latex_nb201)
 # For fbnet_samp_eff.csv
 latex_fbnet = generate_latex_table_from_csv('aggr_arch_abl/fbnet_samp_eff.csv')
 print(latex_fbnet)
+
+    # # Generate the LaTeX table
+    # latex_table = df.pivot_table(index="task_index", 
+    #                          columns=["hwemb_to_mlp", "transfer_hwemb"], 
+    #                          values="formatted_spr", 
+    #                          aggfunc="first").T.to_latex(escape=False)
+    # Generate the LaTeX table
+    # latex_table = df.pivot_table(index="task_index", 
+    #                          columns=["hwemb_to_mlp", "transfer_hwemb"], 
+    #                          values="formatted_spr", 
+    #                          aggfunc="first").T.to_latex(escape=False)
