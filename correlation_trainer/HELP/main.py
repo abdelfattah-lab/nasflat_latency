@@ -9,6 +9,9 @@ import torch, random
 from parser import get_parser
 from help import HELP
 import pickle
+import sys
+sys.path.append("..")
+from device_task_list import HardwareDataset
 
 def main(args):
     set_seed(args)
@@ -22,7 +25,7 @@ def main(args):
         if args.mode == 'meta-train':
             model.meta_train()
             corr_results[trial].append(model.test_predictor())
-    results_dir = '/home/ya255/projects/flan_hardware/correlation_trainer/correlation_results'
+    results_dir = '/home/ya255/projects/flan_hardware/correlation_trainer/correlation_results/'
     new_dir = os.path.join(results_dir, args.name_desc)
     # make it if it doesnt exist
     if not os.path.exists(new_dir):
@@ -63,6 +66,10 @@ def main(args):
             new_corr_results[dev]["kdt"].append(corr_results[trial][0][dev][0]["kdt"])
     corr_results = new_corr_results
     old_values = values.copy()
+    avg_spr = []
+    avg_kdt = []
+    avg_spr_std = []
+    avg_kdt_std = []
     for device, results in corr_results.items():
         print(device)
         spr_values = results["spr"]
@@ -76,15 +83,51 @@ def main(args):
         
         # Add the calculated values to the values list
         values.extend([str(device), mean_spr, mean_spr_std, mean_kdt, mean_kdt_std])
+        avg_spr.append(mean_spr)
+        avg_kdt.append(mean_kdt)
+        avg_spr_std.append(mean_spr_std)
+        avg_kdt_std.append(mean_kdt_std)
+        ssn_ = "nb201" if args.search_space=="nasbench201" else "fbnet"
         # Write header if file doesnt exist
-        if not os.path.exists(os.path.join(new_dir, f'help_samp_eff.csv')):
-            with open(os.path.join(new_dir, f'help_samp_eff.csv'), 'a') as f:
+        if not os.path.exists(os.path.join(new_dir, f'{ssn_}_samp_eff.csv')):
+            with open(os.path.join(new_dir, f'{ssn_}_samp_eff.csv'), 'a') as f:
                 f.write(','.join(header_args) + '\n')
         # Write values to file
-        with open(os.path.join(new_dir, f'help_samp_eff.csv'), 'a') as f:
+        with open(os.path.join(new_dir, f'{ssn_}_samp_eff.csv'), 'a') as f:
             f.write(','.join(map(str, values)) + '\n')
 
         values = old_values.copy()
+    
+    new_dir = os.path.join(results_dir, "aggr_" + args.name_desc)
+    # make it if it doesnt exist
+    if not os.path.exists(new_dir):
+        os.makedirs(new_dir)
+
+    # Extracting required args and saving them along with calculated metrics
+    header_args = ['seed', 'name_desc', 'task_index', 'num_trials', 'search_space', 'meta_train_devices', 
+                   'meta_valid_devices', 'num_inner_tasks', 'num_meta_train_sample', 
+                   'num_samples', 'num_query', 'meta_lr', 'num_episodes', 'num_train_updates', 
+                   'num_eval_updates', 'alpha_on', 'inner_lr', 'second_order', 'hw_embed_on', 
+                   'hw_embed_dim', 'layer_size', 'spr', 'spr_std', 'kdt', 'kdt_std']
+    
+    # Extract values based on header_args
+    values = [getattr(args, attr) for attr in header_args if hasattr(args, attr)]
+    # if attribute is a list, convert it to a string
+    values = ['|'.join(map(str, value)) if isinstance(value, list) else value for value in values]
+    
+    avg_spr = np.mean(avg_spr)
+    avg_kdt = np.mean(avg_kdt)
+    avg_spr_std = np.mean(avg_spr_std)
+    avg_kdt_std = np.mean(avg_kdt_std)
+    values.extend([avg_spr, avg_spr_std, avg_kdt, avg_kdt_std])
+    # Write header if file doesnt exist
+    if not os.path.exists(os.path.join(new_dir, f'{ssn_}_samp_eff.csv')):
+        with open(os.path.join(new_dir, f'{ssn_}_samp_eff.csv'), 'a') as f:
+            f.write(','.join(header_args) + '\n')
+    # Write values to file
+    with open(os.path.join(new_dir, f'{ssn_}_samp_eff.csv'), 'a') as f:
+        f.write(','.join(map(str, values)) + '\n')
+
 
     # header_args = 'seed,name_desc,num_trials,search_space,meta_train_devices,meta_valid_devices,transfer_device,num_inner_tasks,num_meta_train_sample,num_samples,num_query,meta_lr,num_episodes,num_train_updates,num_eval_updates,alpha_on,inner_lr,second_order,hw_embed_on,hw_embed_dim,layer_size,spr,spr_std,kdt,kdt_std'
     # For each 'trnasfer_device' in the corr_results, calculate the spr, spr_std, kdt, kdt_std and save them along with the args described in the header above.
@@ -122,4 +165,18 @@ def set_path(args):
     return args 
 
 if __name__ == '__main__':
-    main(get_parser())
+    args = get_parser()
+    hw_taskset = HardwareDataset()
+    # Data & Meta-learning Settings
+    args.space = 'nb201' if args.search_space=='nasbench201' else 'fbnet'
+    args.meta_train_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
+    args.meta_test_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
+    for idx_, device in enumerate(args.meta_valid_devices):
+        if device in args.meta_test_devices:
+            # remove element at that idx_
+            args.meta_valid_devices.pop(idx_)
+    hw_taskset = HardwareDataset()
+    args.source_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
+    args.target_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
+    args.num_inner_tasks = len(args.meta_train_devices)
+    main(args)

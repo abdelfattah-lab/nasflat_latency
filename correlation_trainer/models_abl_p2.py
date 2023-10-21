@@ -47,14 +47,14 @@ class NodeFeatureNN(nn.Module):
         return out_reshaped
 
 class EnsembleGATDGFLayer(nn.Module):
-    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale, ensemble_fuse_method):
+    def __init__(self, in_features, out_features, op_emb_dim, ensemble_fuse_method):
         super(EnsembleGATDGFLayer, self).__init__()
         self.ensemble_fuse_method = ensemble_fuse_method
         ensemble_conversion_dims = [64, 64]
         self.ensemble_conversion_dims = ensemble_conversion_dims
         # Instantiate both modules
-        self.dense_graph_flow = DenseGraphFlow(in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale)
-        self.graph_attention_layer = GraphAttentionLayer(in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale)
+        self.dense_graph_flow = DenseGraphFlow(in_features, out_features, op_emb_dim)
+        self.graph_attention_layer = GraphAttentionLayer(in_features, out_features, op_emb_dim)
         
         if ensemble_fuse_method == "mlp":
             self.ensemble_conversion_list = []
@@ -115,48 +115,34 @@ class DenseGraphFlow(nn.Module):
     
 
 class GraphAttentionLayer(nn.Module):
-    def __init__(self, in_features, out_features, op_emb_dim, residual, unique_attn_proj, opattention, leakrelu, attention_rescale, ensemble_fuse_method):
+    def __init__(self, in_features, out_features, op_emb_dim, ensemble_fuse_method):
         super(GraphAttentionLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.residual = residual
-        self.unique_attn_proj = unique_attn_proj
-        self.opattention = opattention
-        self.leakrelu = leakrelu
-        self.attention_rescale = attention_rescale
         self.op_attention = nn.Linear(op_emb_dim, out_features)
         self.Wk = nn.Linear(in_features, out_features, bias=False)
-        if self.unique_attn_proj:
-            self.Wv = nn.Linear(in_features, out_features, bias=False)
-            self.Wq = nn.Linear(in_features, out_features, bias=False)
+        # if self.unique_attn_proj:
+        # self.Wv = nn.Linear(in_features, out_features, bias=False)
+        # self.Wq = nn.Linear(in_features, out_features, bias=False)
         self.a = nn.Linear(out_features, 1, bias=False)
         self.leakyrelu = nn.LeakyReLU(0.2)
         self.layernorm = nn.LayerNorm(out_features)
 
     def forward(self, h, adj, op_emb):
         Whk = self.Wk(h) # model actual attention -> 3 different Ws, remove leakyrelu
-        if self.unique_attn_proj:
-            Whv = self.Wv(h)
-            Whq = self.Wq(h)
-        else:
-            Whv = Whk
-            Whq = Whk
+        # if self.unique_attn_proj:
+        #     Whv = self.Wv(h)
+        #     Whq = self.Wq(h)
+        # else:
+        Whv = Whk
+        Whq = Whk
         a_input = torch.einsum('balm,beam->belm', Whk.unsqueeze(-3).expand(-1, -1, Whk.size(1), -1), 
             Whq.unsqueeze(-2).expand(-1, Whq.size(1), -1, -1))
-        if self.attention_rescale:
-            a_input = a_input / np.sqrt(self.out_features)
-        if self.leakrelu:
-            alpha = F.leaky_relu(self.a(a_input))
-        else:
-            alpha = self.a(a_input)
+        a_input = a_input / np.sqrt(self.out_features)
+        alpha = F.leaky_relu(self.a(a_input))
         alpha = alpha * adj.unsqueeze(-1)
         attention = F.softmax(alpha, dim=-2)
-        if self.opattention:
-            h_prime = torch.sigmoid(self.op_attention(op_emb)) * torch.einsum('bijl,bjl->bil', attention, Whv)
-        else:
-            h_prime = torch.sigmoid(op_emb) * torch.einsum('bijl,bjl->bil', attention, Whv)
-        # if self.residual:
-        #     h_prime += Whk
+        h_prime = torch.sigmoid(self.op_attention(op_emb)) * torch.einsum('bijl,bjl->bil', attention, Whv)
         h_prime = self.layernorm(h_prime)
         return h_prime
     

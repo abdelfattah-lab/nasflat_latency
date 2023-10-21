@@ -357,3 +357,45 @@ for target_device in repeat_dict.keys():
     dev_kdt_means.append(np.mean(repeat_dict[target_device]['kdt']))
 
 print("Mean\t\t", np.mean(dev_spr_means), np.mean(dev_kdt_means), np.std(dev_spr_means), np.std(dev_kdt_means))
+
+if not os.path.exists('./../correlation_results/aggr_{}'.format(str_args.name_desc)):
+    os.makedirs('./../correlation_results/aggr_{}'.format(str_args.name_desc))
+
+filename = f'./../correlation_results/aggr_{str_args.name_desc}/nb201_samp_eff.csv'
+
+header = "uid,name_desc,seed,source_devices,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
+if not os.path.isfile(filename):
+    with open(filename, 'w') as f:
+        f.write(header + "\n")
+
+source_devices = "|".join(train_devices)
+
+with open(filename, 'a') as f:
+    avg_spr = []
+    avg_kdt = []
+    avg_spr_std = []
+    avg_kdt_std = []
+    for target_device in repeat_dict.keys():
+        avg_spr.append(np.mean(repeat_dict[target_device]['spr']))
+        avg_kdt.append(np.mean(repeat_dict[target_device]['kdt']))
+        avg_spr_std.append(np.std(repeat_dict[target_device]['spr']))
+        avg_kdt_std.append(np.std(repeat_dict[target_device]['kdt']))    
+    spr = np.mean(avg_spr)
+    kdt = np.mean(avg_kdt)
+    spr_std = np.mean(avg_spr_std)
+    kdt_std = np.mean(avg_kdt_std)
+    vals = [
+        str(uid),
+        str(str_args.name_desc),
+        str(seed),
+        source_devices,
+        target_device,
+        str(dev_train_samples),
+        str(emb_transfer_samples),
+        str(num_trials),
+        str(spr),
+        str(kdt),
+        str(spr_std),
+        str(kdt_std)
+    ]
+    f.write("%s\n" % ','.join(vals))
