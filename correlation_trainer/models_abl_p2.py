@@ -53,8 +53,8 @@ class EnsembleGATDGFLayer(nn.Module):
         ensemble_conversion_dims = [64, 64]
         self.ensemble_conversion_dims = ensemble_conversion_dims
         # Instantiate both modules
-        self.dense_graph_flow = DenseGraphFlow(in_features, out_features, op_emb_dim)
-        self.graph_attention_layer = GraphAttentionLayer(in_features, out_features, op_emb_dim)
+        self.dense_graph_flow = DenseGraphFlow(in_features, out_features, op_emb_dim, ensemble_fuse_method)
+        self.graph_attention_layer = GraphAttentionLayer(in_features, out_features, op_emb_dim, ensemble_fuse_method)
         
         if ensemble_fuse_method == "mlp":
             self.ensemble_conversion_list = []
