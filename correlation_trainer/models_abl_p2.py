@@ -50,7 +50,7 @@ class EnsembleGATDGFLayer(nn.Module):
     def __init__(self, in_features, out_features, op_emb_dim, ensemble_fuse_method):
         super(EnsembleGATDGFLayer, self).__init__()
         self.ensemble_fuse_method = ensemble_fuse_method
-        ensemble_conversion_dims = [64, 64]
+        ensemble_conversion_dims = [out_features, out_features]
         self.ensemble_conversion_dims = ensemble_conversion_dims
         # Instantiate both modules
         self.dense_graph_flow = DenseGraphFlow(in_features, out_features, op_emb_dim, ensemble_fuse_method)
@@ -58,10 +58,10 @@ class EnsembleGATDGFLayer(nn.Module):
         
         if ensemble_fuse_method == "mlp":
             self.ensemble_conversion_list = []
-            dim = self.forward_gcn_out_dims[-1]
+            dim = 2*out_features
             num_fb_layers = len(self.ensemble_conversion_dims)
             for i_dim, ensemble_conversion_dim in enumerate(ensemble_conversion_dims):
-                self.ensemble_conversion_list.append(nn.Linear(dim, ensemble_conversion_dims))
+                self.ensemble_conversion_list.append(nn.Linear(dim, ensemble_conversion_dim))
                 if i_dim < num_fb_layers - 1:
                     self.ensemble_conversion_list.append(nn.ReLU(inplace=False))
                 dim = ensemble_conversion_dim
