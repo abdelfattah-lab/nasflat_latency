@@ -16,7 +16,7 @@ def generate_graph_from_csv(file_path, space):
     task_indices = sorted(list(set(df.task_index.tolist())))
 
     # Create a new figure with three subplots side by side
-    fig, axes = plt.subplots(nrows=1, ncols=len(task_indices), figsize=(18, 6))
+    fig, axes = plt.subplots(nrows=1, ncols=len(task_indices), figsize=(18, 5))
     
     allowed_metrics = ["random", "params", "zcp", "a2vcatezcp"]
 
@@ -57,10 +57,15 @@ def generate_graph_from_csv(file_path, space):
 
     plt.tight_layout()
     lxs = file_path.split("/")[0]
-    if not os.path.exists(f"{lxs}_graphs_{space}/"):
-        os.makedirs(f"{lxs}_graphs_{space}/")
-    plt.savefig(f"{lxs}_graphs_{space}/combined_tasks.png", bbox_inches='tight')
-    plt.savefig(f"{lxs}_graphs_{space}/combined_tasks.pdf", bbox_inches='tight')
+    if not os.path.exists(f"graphs/{lxs}_graphs_{space}/"):
+        os.makedirs(f"graphs/{lxs}_graphs_{space}/")
+    plt.savefig(f"graphs/{lxs}_graphs_{space}/combined_tasks.png", bbox_inches='tight')
+    plt.savefig(f"graphs/{lxs}_graphs_{space}/combined_tasks.pdf", bbox_inches='tight')
+# For nb201_samp_eff.csv
+generate_graph_from_csv('aggr_study_6_3_1_t2/nb201_samp_eff.csv', space="nb201")
+
+# For fbnet_samp_eff.csv
+generate_graph_from_csv('aggr_study_6_3_1_t2/fbnet_samp_eff.csv', space="fbnet")
     # plt.show()  # display the graph
 # def generate_graph_from_csv(file_path, space):
 #     # Read the CSV file with the specified columns
@@ -106,11 +111,6 @@ def generate_graph_from_csv(file_path, space):
 #         plt.savefig(f"{lxs}_graphs_{space}/task_{task_ix}.png")
 #         plt.cla()
 #         plt.clf()
-# For nb201_samp_eff.csv
-generate_graph_from_csv('aggr_study_6_3_1_t2/nb201_samp_eff.csv', space="nb201")
-
-# For fbnet_samp_eff.csv
-generate_graph_from_csv('aggr_study_6_3_1_t2/fbnet_samp_eff.csv', space="fbnet")
 # def generate_graph_from_csv(file_path, space):
 #     df = pd.read_csv(file_path)
 #     df = df[["task_index", "transfer_sample_size", "sampling_metric", "spr", "spr_std"]]

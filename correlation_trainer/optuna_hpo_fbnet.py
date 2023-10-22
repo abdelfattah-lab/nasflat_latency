@@ -45,7 +45,7 @@ def objective(trial):
 
     # Logging the result for the current trial
     with open('optuna_fbn.log', 'a') as log_file:
-        log_file.write(f"Trial {trial.number}, Params: {trial.params}, Value: {trial.value}\n")
+        log_file.write(f"Trial {trial.number}, Params: {trial.params}, Value: {avg_spr}\n")
 
     return avg_spr
 
