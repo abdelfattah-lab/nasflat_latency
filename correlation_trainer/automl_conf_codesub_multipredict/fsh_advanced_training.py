@@ -320,7 +320,7 @@ if not os.path.exists('./../correlation_results/{}'.format(str_args.name_desc)):
     os.makedirs('./../correlation_results/{}'.format(str_args.name_desc))
 
 filename = f'./../correlation_results/{str_args.name_desc}/nb201_samp_eff.csv'
-header = "uid,name_desc,seed,source_devices,target_device,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
+header = "uid,name_desc,task_index,seed,source_devices,target_device,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
@@ -336,6 +336,7 @@ with open(filename, 'a') as f:
         vals = [
             str(uid),
             str(str_args.name_desc),
+            str(str_args.task_index),
             str(seed),
             source_devices,
             target_device,
