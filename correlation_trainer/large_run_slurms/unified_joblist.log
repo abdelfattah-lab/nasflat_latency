@@ -1,5 +1,202 @@
 ### Final Results
-False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 900 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 10 11 13 15 17 24 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 1 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
+#  Table description:
+#  
+#                                  N0          N1          N2          N3      N4  
+#  HELP
+#  MultiPredict
+#                                  N0          N1          N2          N3      N4  
+#  GIN
+#  (+TransferEmb)
+#  (+Op-HWEmb)
+#  (+Sampler)
+#  (+Supplementary Encoding)
+#  
+#                                  F0          F1          F2          F3      F4
+#  HELP
+#  MultiPredict
+#                                  F0          F1          F2          F3      F4
+#  GIN
+#  (+TransferEmb)
+#  (+Op-HWEmb)
+#  (+Sampler)
+#  (+Supplementary Encoding)
+# Observations:
+# We want to identify all components. 
+# So, start with: 
+# FBNet: pre-train samples: 200, post-train samples: 20 (compare with HELP 10), sampler CAZ, adj_gin_arch2vec   --> task_idx: 0,1,2,3,4 [Trial 25, Params: {'representation': 'adj_gin_arch2vec', 'transfer_lr': 0.008292318095241624, 'transfer_epochs': 30, 'ensemble_fuse_method': 'add'}, Value: 0.8747976179576389]
+# NB201: pre-train samples: 25, post-train samples: 20 (compare with HELP 10), sampler CATE, adj_gin_a2vcatezcp --> task_idx: 0,1,2,3,4 [Trial 49, Params: {'representation': 'adj_gin_zcp', 'transfer_lr': 0.0028163127802355937, 'transfer_epochs': 40, 'ensemble_fuse_method': 'add'}, Value: 0.8725366126855129]
+# NB201 results 
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 0 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+
+# NB201 results 
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 1 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+
+# NB201 results 
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 2 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+
+# NB201 results 
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 3 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+
+# NB201 results 
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --hwemb_to_mlp --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 16 --task_index 4 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.003 --transfer_epochs 40 --transfer_hwemb --space nb201 --gnn_type ensemble --sampling_metric cate --ensemble_fuse_method add
+
+# FBNet results
+# no transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 0 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 1 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 2 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 3 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+True,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f_2 --sample_sizes 200 --task_index 4 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.001 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+
+
+# FBNet results #### old
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 0 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 0 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 1 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 1 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 2 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 2 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 3 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 3 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# FBNet results
+# no transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, with hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --hwemb_to_mlp --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric random --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 4 --representation adj_gin --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
+# with transferhwemb, without hwmlp, with good sampler and supplementary encoding
+False,s65f,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_5_f --sample_sizes 200 --task_index 4 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 10 15 20 --transfer_lr 0.008 --transfer_epochs 30 --transfer_hwemb --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp --ensemble_fuse_method add
 
 
 ### [EXP 6 4 1b]  [random, params, arch2vec, cate, zcp, a2vcatezcp, accuracy, latency] for sampling_metric; scaling with 'transfer_sample_sizes' [5 7 9 11 13 15 17] with sample sizes 512 with best representation
@@ -33,33 +230,33 @@ False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --
 
 
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1b --sample_sizes 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 5 7 9 11 13 15 17 24 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
 
 
 ### [EXP 6 4 1a]  [random, params, arch2vec, cate, zcp, a2vcatezcp, accuracy, latency] for sampling_metric; scaling with 'sample_sizes' [16,32,64,128,256,512] with target transfer sample size 20 with best representation
@@ -93,33 +290,33 @@ False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --
 
 
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_a2vcatezcp --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space nb201 --gnn_type ensemble --sampling_metric a2vcatezcp
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 3 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
 
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric random
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric params
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric cate
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric zcp
-True,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric random
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric params
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric arch2vec
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric cate
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric zcp
+False,s641,True,30000,4,python main_trf.py --seed 42 --name_desc study_6_4_1a --sample_sizes 16 32 64 128 256 512 --representation adj_gin_arch2vec --num_trials 5 --transfer_sample_sizes 20 --transfer_lr 0.0001 --transfer_epochs 20 --transfer_hwemb --task_index 4 --space fbnet --gnn_type ensemble --sampling_metric a2vcatezcp
 
 
 

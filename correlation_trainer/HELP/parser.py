@@ -33,7 +33,7 @@ def get_parser():
     # parser.add_argument('--meta_train_devices', type=str2list, 
     #             default='1080ti_1,1080ti_32,1080ti_256,silver_4114,silver_4210r,samsung_a50,pixel3,essential_ph_1,samsung_s7')
     parser.add_argument('--meta_valid_devices', type=str2list, 
-                default='titanx_1,titanx_32,titanx_256,gold_6240')
+                default='titanx_1,titanx_32,gold_6240')
     # parser.add_argument('--meta_test_devices', type=str2list, 
     #             default='titan_rtx_256,gold_6226,fpga,pixel2,raspi4,eyeriss')
     parser.add_argument('--num_inner_tasks', type=int, default=8, help="the number of meta-batch")
