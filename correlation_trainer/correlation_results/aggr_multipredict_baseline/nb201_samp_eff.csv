@@ -1,0 +1,16 @@
+uid,name_desc,seed,source_devices,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std
+810133750,multipredict_baseline,10,2080ti_1|essential_ph_1|silver_4114|titan_rtx_1|titan_rtx_32,samsung_s7,900,20,1,0.8825227467318492,0.7331430518295042,0.0,0.0
+29059366,multipredict_baseline,10,2080ti_1|essential_ph_1|silver_4114|titan_rtx_1|titan_rtx_32,samsung_s7,900,20,1,0.8481123605266676,0.6937928165503559,0.0,0.0
+506161790,multipredict_baseline,10,2080ti_1|essential_ph_1|silver_4114|titan_rtx_1|titan_rtx_32,samsung_s7,900,20,1,0.881831512472635,0.7331166009797702,0.0,0.0
+628304579,multipredict_baseline,10,essential_ph_1|gold_6226|gold_6240|pixel3|raspi4,900,20,1,0.9708377426284098,0.8600206301632761,0.0,0.0
+607680502,multipredict_baseline,2,10,essential_ph_1|gold_6226|gold_6240|pixel3|raspi4,1080ti_1|1080ti_32|2080ti_32|titan_rtx_1|titanxp_1,900,20,1,0.9689515701126223,0.855298802783579,0.0,0.0
+2652390,multipredict_baseline,2,10,1080ti_1|1080ti_32|titanx_32|titanxp_1|titanxp_32,embedded_gpu_jetson_nano_fp16|embedded_tpu_edge_tpu_int8|mobile_dsp_snapdragon_675_hexagon_685_int8|mobile_dsp_snapdragon_855_hexagon_690_int8|pixel3,900,20,1,0.7467323655244321,0.5644537846455764,0.0,0.0
+713277641,multipredict_baseline,1,10,embedded_tpu_edge_tpu_int8|eyeriss|mobile_gpu_snapdragon_675_adreno_612_int8|mobile_gpu_snapdragon_855_adreno_640_int8|pixel3,1080ti_1|titan_rtx_32|titanxp_1|2080ti_32|titan_rtx_1,900,20,1,0.948597016613663,0.8076947200383007,0.0,0.0
+797421512,multipredict_baseline,1,10,2080ti_1|essential_ph_1|silver_4114|titan_rtx_1|titan_rtx_32,eyeriss|fpga|raspi4|samsung_a50|samsung_s7,4000,20,1,0.7366575212025763,0.5515261749304929,0.0,0.0
+559880161,multipredict_baseline,1,10,2080ti_1|essential_ph_1|silver_4114|titan_rtx_1|titan_rtx_32,eyeriss|fpga|raspi4|samsung_a50|samsung_s7,4000,20,1,0.7706657991017336,0.5867036389107281,0.0,0.0
+705781448,multipredict_baseline,1,10,2080ti_1|essential_ph_1|silver_4114|titan_rtx_1|titan_rtx_32,eyeriss|fpga|raspi4|samsung_a50|samsung_s7,4000,20,1,0.7583876948322237,0.5747422269831619,0.0,0.0
+823797413,multipredict_baseline,2,10,essential_ph_1|gold_6226|gold_6240|pixel3|raspi4,1080ti_1|1080ti_32|2080ti_32|titan_rtx_1|titanxp_1,4000,20,1,0.5766125343266437,0.40715526242358224,0.0,0.0
+529562362,multipredict_baseline,2,10,essential_ph_1|gold_6226|gold_6240|pixel3|raspi4,1080ti_1|1080ti_32|2080ti_32|titan_rtx_1|titanxp_1,4000,20,5,0.571856359483103,0.4028048399444978,0.04633807997370741,0.036288060812861365
+655315954,multipredict_baseline,4,10,1080ti_64|2080ti_1|eyeriss|gold_6226|gold_6240|raspi4|samsung_s7|silver_4210r|titan_rtx_1|titan_rtx_32,1080ti_1|pixel2|essential_ph_1,4000,20,1,0.7642886395509586,0.5867957239299183,0.0,0.0
+673810632,multipredict_baseline,4,10,1080ti_64|2080ti_1|eyeriss|gold_6226|gold_6240|raspi4|samsung_s7|silver_4210r|titan_rtx_1|titan_rtx_32,1080ti_1|pixel2|essential_ph_1,4000,20,1,0.7548948659534754,0.579066177207033,0.0,0.0
+279134910,multipredict_baseline,4,10,1080ti_64|2080ti_1|eyeriss|gold_6226|gold_6240|raspi4|samsung_s7|silver_4210r|titan_rtx_1|titan_rtx_32,1080ti_1|pixel2|essential_ph_1,4000,20,1,0.7163443757841202,0.5443238215817726,0.0,0.0

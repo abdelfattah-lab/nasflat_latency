@@ -53,9 +53,9 @@ print("Config IDX: ", str_args.config_idx)
 all_config = read_config('base_config.json')
 
 hw_taskset = HardwareDataset()
-# args.space = 'nb201' if search_space=='nasbench201' else 'fbnet'
-str_args.train_devices = hw_taskset.get_data(str_args.space, str_args.task_index)["train"]
-str_args.transfer_devices = hw_taskset.get_data(str_args.space, str_args.task_index)["test"]
+fetch_dev_space = 'nb201' if str_args.space=='nb201' or str_args.space=="nasbench201" else 'fbnet'
+str_args.train_devices = hw_taskset.get_data(fetch_dev_space, str_args.task_index)["train"]
+str_args.transfer_devices = hw_taskset.get_data(fetch_dev_space, str_args.task_index)["test"]
 
 (representation, test_idx, search_space, num_trials, report, s, emb_transfer_samples, fsh_sampling_strat, fsh_mc_sampling, dev_train_samples, train_batchsize, test_batchsize, epochs, transfer_epochs, \
 mixed_training, mixed_train_weight, hw_emb_dim, gcn_layer_size, nn_emb_dim, feat_layer_size, \
@@ -65,7 +65,7 @@ adapt_new_embedding, pre_train_transferset, device, cpu_map) = all_config
 
 
 all_config = list(all_config)
-all_config[2] = 'nasbench201' if str_args.space=='nb201' else 'fbnet'
+all_config[2] = 'nasbench201' if str_args.space=='nb201' or str_args.space=="nasbench201" else 'fbnet'
 all_config[22] = ','.join(str_args.train_devices)
 train_device_list = ','.join(str_args.train_devices)
 all_config[23] = ','.join(str_args.transfer_devices)
@@ -77,7 +77,7 @@ all_config[9] = str_args.dev_train_samples
 all_config[8] = str_args.fsh_mc_sampling
 all_config[5] = str_args.emb_transfer_samples
 all_config = tuple(all_config)
-
+str_args.space = 'nasbench201' if str_args.space=='nb201' or str_args.space=="nasbench201" else 'fbnet'
 search_space = str_args.space
 emb_transfer_samples   =  str_args.emb_transfer_samples
 fsh_mc_sampling = str_args.fsh_mc_sampling
@@ -231,47 +231,47 @@ for repeated_trial_idx in range(repeat_times):
                 transfer_specific_lr_list = [float(x) for x in transfer_specific_lr.split(",")]
                 optimizer = torch.optim.AdamW(net.parameters(), lr=transfer_specific_lr_list[transfer_device_idx], weight_decay=5.0e-4)
             else:
-                if search_space=='fbnet':
-                    if embedding_type=='learnable':
-                        net.fc1.weight.requires_grad = False
-                        net.fc1.bias.requires_grad = False
-                        net.fc2.weight.requires_grad = False
-                        net.fc2.bias.requires_grad = False
-                        net.fc3.weight.requires_grad = False
-                        net.fc3.bias.requires_grad = False
-                elif search_space=='nasbench201':
-                    if embedding_type=='learnable':
-                        net.gc1.weight.requires_grad = False
-                        net.gc1.bias.requires_grad = False
-                        net.gc2.weight.requires_grad = False
-                        net.gc2.bias.requires_grad = False
-                        net.gc3.weight.requires_grad = False
-                        net.gc3.bias.requires_grad = False
-                        net.gc4.weight.requires_grad = False
-                        net.gc4.bias.requires_grad = False
-                        net.fc3.weight.requires_grad = False
-                        net.fc3.bias.requires_grad = False
-                        net.fc4.weight.requires_grad = False
-                        net.fc4.bias.requires_grad = False
-                        net.fc5.weight.requires_grad = False
-                        net.fc5.bias.requires_grad = False
-                    else:
-                        net.gc1.weight.requires_grad = False
-                        net.gc1.bias.requires_grad = False
-                        net.gc2.weight.requires_grad = False
-                        net.gc2.bias.requires_grad = False
-                        net.gc3.weight.requires_grad = False
-                        net.gc3.bias.requires_grad = False
-                        net.gc4.weight.requires_grad = False
-                        net.gc4.bias.requires_grad = False
-                        net.fc3.weight.requires_grad = False
-                        net.fc3.bias.requires_grad = False
-                        net.fc4.weight.requires_grad = False
-                        net.fc4.bias.requires_grad = False
-                        net.fc5.weight.requires_grad = False
-                        net.fc5.bias.requires_grad = False
+                # if search_space=='fbnet':
+                #     if embedding_type=='learnable':
+                #         net.fc1.weight.requires_grad = False
+                #         net.fc1.bias.requires_grad = False
+                #         net.fc2.weight.requires_grad = False
+                #         net.fc2.bias.requires_grad = False
+                #         net.fc3.weight.requires_grad = False
+                #         net.fc3.bias.requires_grad = False
+                # elif search_space=='nasbench201':
+                #     if embedding_type=='learnable':
+                #         # net.gc1.weight.requires_grad = False
+                #         # net.gc1.bias.requires_grad = False
+                #         # net.gc2.weight.requires_grad = False
+                #         # net.gc2.bias.requires_grad = False
+                #         # net.gc3.weight.requires_grad = False
+                #         # net.gc3.bias.requires_grad = False
+                #         # net.gc4.weight.requires_grad = False
+                #         # net.gc4.bias.requires_grad = False
+                #         # net.fc3.weight.requires_grad = False
+                #         # net.fc3.bias.requires_grad = False
+                #         # net.fc4.weight.requires_grad = False
+                #         # net.fc4.bias.requires_grad = False
+                #         # net.fc5.weight.requires_grad = False
+                #         # net.fc5.bias.requires_grad = False
+                #     else:
+                #         net.gc1.weight.requires_grad = False
+                #         net.gc1.bias.requires_grad = False
+                #         net.gc2.weight.requires_grad = False
+                #         net.gc2.bias.requires_grad = False
+                #         net.gc3.weight.requires_grad = False
+                #         net.gc3.bias.requires_grad = False
+                #         net.gc4.weight.requires_grad = False
+                #         net.gc4.bias.requires_grad = False
+                #         net.fc3.weight.requires_grad = False
+                #         net.fc3.bias.requires_grad = False
+                #         net.fc4.weight.requires_grad = False
+                #         net.fc4.bias.requires_grad = False
+                #         net.fc5.weight.requires_grad = False
+                #         net.fc5.bias.requires_grad = False
                     
-                optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, net.parameters()), lr=1e-3, weight_decay=5.0e-4)
+                optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, net.parameters()), lr=4e-4, weight_decay=5.0e-4)
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=transfer_epochs, eta_min=0.0)
             criterion = torch.nn.L1Loss(reduction='sum').to(device)
             net = train_net_brp_params(net, representation, embedding_type, transfer_epochs, specific_transfer_train_loader, criterion, optimizer, scheduler, train_loader, device, search_space)
@@ -364,7 +364,7 @@ if not os.path.exists('./../correlation_results/aggr_{}'.format(str_args.name_de
 
 filename = f'./../correlation_results/aggr_{str_args.name_desc}/nb201_samp_eff.csv'
 
-header = "uid,name_desc,seed,source_devices,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
+header = "uid,name_desc,task_index,seed,source_devices,target_devices,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
         f.write(header + "\n")
@@ -388,9 +388,10 @@ with open(filename, 'a') as f:
     vals = [
         str(uid),
         str(str_args.name_desc),
+        str(str_args.task_index),
         str(seed),
         source_devices,
-        target_device,
+        "|".join(list(repeat_dict.keys())),
         str(dev_train_samples),
         str(emb_transfer_samples),
         str(num_trials),

@@ -22,10 +22,10 @@
 
     "hw_emb_dim"            :  8,
     "gcn_layer_size"        :  200,
-    "nn_emb_dim"            :  50,
+    "nn_emb_dim"            :  30,
 
-    "feat_layer_size"       :  512,
-    "feat_depth"            :  3,
+    "feat_layer_size"       :  1000,
+    "feat_depth"            :  2,
 
     "loss_function"         :  "mse",
     "train_device_list"     :  "1080ti_1,1080ti_32,1080ti_256,silver_4114,silver_4210r,samsung_a50,pixel3,essential_ph_1,samsung_s7",

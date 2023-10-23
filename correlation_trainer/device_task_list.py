@@ -27,6 +27,11 @@ class HardwareDataset:
                     "train": ['desktop_cpu_core_i7_7820x_fp32', 'embedded_gpu_jetson_nano_fp32', 'embedded_tpu_edge_tpu_int8', 'eyeriss', 'mobile_cpu_snapdragon_855_kryo_485_int8', 'mobile_dsp_snapdragon_675_hexagon_685_int8', 'mobile_dsp_snapdragon_855_hexagon_690_int8', 'mobile_gpu_snapdragon_675_adreno_612_int8', 'mobile_gpu_snapdragon_855_adreno_640_int8', 'pixel2'],
                     "test": ['1080ti_1', '2080ti_1', 'titan_rtx_1']
                 },
+                5: {
+                    # 
+                    "train": ["titan_rtx_1","titan_rtx_32","titanxp_1","2080ti_1","titanx_1","1080ti_1","titanx_32","titanxp_32","2080ti_32","1080ti_32","gold_6226","samsung_s7","silver_4114","gold_6240","silver_4210r","samsung_a50","pixel2"],
+                    "test": ["eyeriss","desktop_gpu_gtx_1080ti_fp32","embedded_tpu_edge_tpu_int8"]
+                },
                 9999: {
                     # For quick testing
                     "train": ["1080ti_1","1080ti_32"],
@@ -58,6 +63,11 @@ class HardwareDataset:
                     # GPU,ASIC,CPU,eCPU,mCPU to GPU,mCPU
                     "train": ['1080ti_64', '2080ti_1', 'eyeriss', 'gold_6226', 'gold_6240', 'raspi4', 'samsung_s7', 'silver_4210r', 'titan_rtx_1', 'titan_rtx_32'],
                     "test": ['1080ti_1', 'pixel2', 'essential_ph_1'],
+                },
+                5: {
+                    # 
+                    "train": ["1080ti_1","1080ti_32","1080ti_64","2080ti_1","2080ti_32","2080ti_64","titan_rtx_1","titan_rtx_32","titan_rtx_64","titanx_1","titanx_32","titanx_64","titanxp_1","titanxp_32","titanxp_64"],
+                    "test": ["gold_6226","essential_ph_1","samsung_s7","pixel2"]
                 },
                 9999: {
                     # For quick testing
@@ -97,19 +107,19 @@ def generate_latex_table(devices, devlist):
 
     return table
 
-# if __name__ == "__main__":
-    # Usage:
-dataset = HardwareDataset()
-print(dataset.get_data('nb201', 1))
-print(dataset.get_data('fbnet', 3))
-# devices ={'mDSP', 'GPUs', 'GPU', 'mCPU', 'eTPU', 'FPGA', 'eCPU', 'eGPU', 'mGPU', 'ASIC', 'mCPU', 'DSP', 'CPU'}
+# # if __name__ == "__main__":
+#     # Usage:
+# dataset = HardwareDataset()
+# print(dataset.get_data('nb201', 1))
+# print(dataset.get_data('fbnet', 3))
+# # devices ={'mDSP', 'GPUs', 'GPU', 'mCPU', 'eTPU', 'FPGA', 'eCPU', 'eGPU', 'mGPU', 'ASIC', 'mCPU', 'DSP', 'CPU'}
 
-devlist = {"nb201" : ["eTPU,ASIC,mGPU,mCPU|GPU","GPU|eGPU,eTPU,eCPU,DSP","CPU,eGPU,ASIC,mGPU,mDSP|GPU","CPU,eGPU,eTPU,ASIC,mCPU,mDSP,mCPU,mGPU|GPU",],
-            "fbnet" : ["mCPU,CPU,GPU|ASIC,FPGA,eCPU","mCPU,CPU,FPGA|GPU","mCPU,FPGA|GPU","GPU,ASIC,CPU,eCPU,mCPU|GPU,mCPU",]}
-devices = devlist['nb201'] + devlist['fbnet']
-devices = set([item for sublist in devices for item in sublist.replace("|", ",").split(',')])
+# devlist = {"nb201" : ["eTPU,ASIC,mGPU,mCPU|GPU","GPU|eGPU,eTPU,eCPU,DSP","CPU,eGPU,ASIC,mGPU,mDSP|GPU","CPU,eGPU,eTPU,ASIC,mCPU,mDSP,mCPU,mGPU|GPU",],
+#             "fbnet" : ["mCPU,CPU,GPU|ASIC,FPGA,eCPU","mCPU,CPU,FPGA|GPU","mCPU,FPGA|GPU","GPU,ASIC,CPU,eCPU,mCPU|GPU,mCPU",]}
+# devices = devlist['nb201'] + devlist['fbnet']
+# devices = set([item for sublist in devices for item in sublist.replace("|", ",").split(',')])
 
-print(generate_latex_table(devices, devlist))
+# print(generate_latex_table(devices, devlist))
 # flatten list of list called 'dl'
 # dl = [item for sublist in devlist for item in sublist.split('|')]
 # I have 4 different 'device sets', each device set has a 'train' and 'test'. The train and test set is demarcated by '|', and the type of devices in each set is separated by ','.
