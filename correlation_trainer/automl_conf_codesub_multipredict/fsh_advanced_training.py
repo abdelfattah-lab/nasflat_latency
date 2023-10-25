@@ -37,7 +37,7 @@ parser.add_argument('--emb_transfer_samples', type=int, default=10)
 parser.add_argument('--fsh_mc_sampling', type=int, default=10)
 parser.add_argument('--dev_train_samples', type=int, default=900)
 parser.add_argument('--num_trials', type=int, default=3)
-parser.add_argument('--epochs', type=int, default=250)
+parser.add_argument('--epochs', type=int, default=150)
 parser.add_argument('--transfer_epochs', type=int, default=50)
 str_args = parser.parse_args()
 
@@ -319,7 +319,7 @@ with open('truecorrs/{}/{}.pkl'.format(str_args.name_desc, uid), 'wb') as f:
 if not os.path.exists('./../correlation_results/{}'.format(str_args.name_desc)):
     os.makedirs('./../correlation_results/{}'.format(str_args.name_desc))
 
-filename = f'./../correlation_results/{str_args.name_desc}/nb201_samp_eff.csv'
+filename = f'./../correlation_results/{str_args.name_desc}/{str_args.space}_samp_eff.csv'
 header = "uid,name_desc,task_index,seed,source_devices,target_device,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):
     with open(filename, 'w') as f:
@@ -362,7 +362,7 @@ print("Mean\t\t", np.mean(dev_spr_means), np.mean(dev_kdt_means), np.std(dev_spr
 if not os.path.exists('./../correlation_results/aggr_{}'.format(str_args.name_desc)):
     os.makedirs('./../correlation_results/aggr_{}'.format(str_args.name_desc))
 
-filename = f'./../correlation_results/aggr_{str_args.name_desc}/nb201_samp_eff.csv'
+filename = f'./../correlation_results/aggr_{str_args.name_desc}/{str_args.space}_samp_eff.csv'
 
 header = "uid,name_desc,task_index,seed,source_devices,target_devices,dev_train_samples,emb_transfer_samples,num_trials,spr,kdt,spr_std,kdt_std"
 if not os.path.isfile(filename):

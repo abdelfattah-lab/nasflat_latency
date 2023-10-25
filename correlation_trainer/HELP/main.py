@@ -170,7 +170,7 @@ if __name__ == '__main__':
     hw_taskset = HardwareDataset()
     # Data & Meta-learning Settings
     args.space = 'nb201' if args.search_space=='nasbench201' else 'fbnet'
-    args.load_path = f'./data/{args.search_space}/checkpoint/help_max_corr.pt'
+    args.load_path = f'./results/{args.search_space}/help/checkpoint/{args.task_index}help_max_corr.pt'
     args.meta_train_devices = hw_taskset.get_data(args.space, args.task_index)["train"]
     args.meta_test_devices = hw_taskset.get_data(args.space, args.task_index)["test"]
     for idx_, device in enumerate(args.meta_valid_devices):

@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--space', type=str, default='nb201')         # nb101, nb201, fbnet, nb301, tb101, amoeba, darts, darts_fix-w-d, darts_lr-wd, enas, enas_fix-w-d, nasnet, pnas, pnas_fix-w-d supported
 parser.add_argument("--task_index", type=int, default=0)
 parser.add_argument('--sampling_metric', type=str, default="random")
+parser.add_argument('--sampling_method', type=str, default="cosine")
 parser.add_argument('--metric_device', type=str, default="titanxp_1")
 parser.add_argument('--sample_sizes', nargs='+', type=int, default=[900]) # Default NB101
 parser.add_argument('--transfer_sample_sizes', nargs='+', type=int, default=[5,10,20])
@@ -432,6 +433,71 @@ def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
         gtype=args.gnn_type
     )
 
+# import graph_tool.all as gt
+# import numpy as np
+
+# def matrices_to_graph_tool_graph(adj_matrix, op_matrix):
+#     g = gt.Graph(directed=False)
+#     v_op = g.new_vertex_property("int")  # Property map for node operations
+    
+#     # Add vertices and set their operations
+#     for op in op_matrix:
+#         v = g.add_vertex()
+#         v_op[v] = op
+
+#     # Add edges based on the adjacency matrix
+#     for i in range(adj_matrix.shape[0]):
+#         for j in range(i+1, adj_matrix.shape[1]):  # i+1 to avoid double counting
+#             if adj_matrix[i][j] == 1:
+#                 g.add_edge(g.vertex(i), g.vertex(j))
+    
+#     return g, v_op
+
+# def compute_ged(adj1, op1, adj2, op2):
+#     g1, v_op1 = matrices_to_graph_tool_graph(adj1, op1)
+#     g2, v_op2 = matrices_to_graph_tool_graph(adj2, op2)
+
+#     # The costs for edge and vertex match. You might adjust these based on your requirements.
+#     edge_costs = [1, 1, 1]
+#     vertex_costs = [1, 1, 1, lambda v1, v2: 0 if v_op1[v1] == v_op2[v2] else 1]
+
+#     distance = gt.edit_distance(g1, g2, edge_costs=edge_costs, vertex_costs=vertex_costs)
+#     return distance
+
+
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+
+def get_distinct_cosine_centers(arch2vecs_, n):
+    vectors = np.array(list(arch2vecs_.values()))
+    keys = list(arch2vecs_.keys())
+    # Initialize with a random vector
+    distinct_indices = [np.random.choice(range(len(vectors)))]
+    # Greedy selection of most distinct vectors
+    for _ in range(n-1):
+        current_center = vectors[distinct_indices[-1]].reshape(1, -1)
+        similarities = cosine_similarity(vectors, current_center)
+        next_index = np.argmin(similarities)
+        distinct_indices.append(next_index)
+    return [keys[i] for i in distinct_indices]
+
+def get_distinct_cosine_centers_avg(arch2vecs_, n):
+    vectors = np.array(list(arch2vecs_.values()))
+    keys = list(arch2vecs_.keys())
+    
+    avg_similarities = []
+
+    # Compute average cosine similarity for each vector
+    for idx, v in enumerate(vectors):
+        similarities = cosine_similarity(vectors, v.reshape(1, -1))
+        avg_similarity = np.mean(similarities)
+        avg_similarities.append(avg_similarity)
+
+    # Sort indices based on average similarity (ascending order) and pick top 'n' 
+    distinct_indices = np.argsort(avg_similarities)[:n]
+
+    return [keys[i] for i in distinct_indices]
+
 def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
     vectors = list(arch2vecs_.values())
     print("Conducting KMeans...")
@@ -447,7 +513,6 @@ def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
     print("KMeans took {} seconds".format(time.time() - start))
     return [keys[i] for i in distinct_indices]
 
-
 def get_distinct_index(args, embedding_gen, space, sample_count, metric, device): # [random, params, arc2vec, cate, zcp, a2vcatezcp, accuracy/latency (oracle)]
     if metric == 'random':
         return random.sample(list(range(embedding_gen.get_numitems(space=space))), sample_count)
@@ -458,7 +523,12 @@ def get_distinct_index(args, embedding_gen, space, sample_count, metric, device)
         return [random.choice(bucket) for bucket in buckets]
     elif metric in ['arch2vec', 'cate', 'zcp', 'a2vcatezcp']:
         metricdict_ = {i: getattr(embedding_gen, f"get_{metric}")(i) for i in list(range(embedding_gen.get_numitems(space=space)))}
-        return get_distinct_arch2vecs_kmeans(metricdict_, sample_count)
+        if args.sampling_method=='kmeans':
+            return get_distinct_arch2vecs_kmeans(metricdict_, sample_count)
+        elif args.sampling_method=='cosine_greedy':
+            return get_distinct_cosine_centers(metricdict_, sample_count)
+        elif args.sampling_method=='cosine':
+            return get_distinct_cosine_centers_avg(metricdict_, sample_count)
     elif metric == 'accuracy':
         accs_ = {i: embedding_gen.get_valacc(i, space=space) for i in list(range(embedding_gen.get_numitems(space=space)))}
         accs_ = {k: v for k, v in sorted(accs_.items(), key=lambda item: item[1])}
@@ -472,6 +542,9 @@ def get_distinct_index(args, embedding_gen, space, sample_count, metric, device)
     else:
         raise NotImplementedError
 
+    # elif metric == 'ged': # {"module_adjacency": adj, "module_operations": op}
+    #     adj_ = {i: embedding_gen.get_adj_op(i, space=space)['module_adjacency'] for i in list(range(embedding_gen.get_numitems(space=space)))}
+    #     op_ = {i: torch.Tensor(np.array(embedding_gen.get_adj_op(i, space=space)['module_operations'] )).argmax(dim=1).tolist() for i in list(range(embedding_gen.get_numitems(space=space)))}
 
 representation = args.representation
 sample_counts = sample_tests[args.space]
@@ -544,7 +617,7 @@ for tr_ in range(args.num_trials):
                 transfer_samps = get_distinct_index(args, embedding_gen, args.space, transfer_count, args.sampling_metric, tfdevice)
                 # import pdb; pdb.set_trace()
                 test_samples = list(set(range(total_samples)))
-                transfer_dataloader, transfer_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=transfer_samps, devices=[tfdevice])
+                transfer_dataloader, transfer_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=transfer_samps, devices=[tfdevice])
                 transfer_test_dataloader, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples, devices=[tfdevice])
                 transfer_test_dataloaderlowbs, transfer_test_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='test', indexes=test_samples[:4], devices=[tfdevice])
 
@@ -670,7 +743,7 @@ if not os.path.exists('correlation_results/aggr_{}'.format(args.name_desc)):
 
 filename = f'correlation_results/aggr_{args.name_desc}/{args.space}_samp_eff.csv'
 
-header = "uid,name_desc,seed,space,source_devices,sampling_metric,task_index,metric_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,\
+header = "uid,name_desc,seed,space,source_devices,sampling_metric,task_index,metric_device,sample_sizes,transfer_sample_size,representation,gnn_type,num_trials,sampling_method,\
 opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device,hwemb_to_mlp,transfer_hwemb,spr,kdt,spr_std,kdt_std"
 # opfpgcn,fgcn,rbgcn,efm,fcd,lr,weight_decay,epochs,transfer_epochs,cpu_gpu_device," + "spr_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "spr_std_%s," * len(args.target_devices) % (tuple(args.target_devices)) + "," + "kdt_std_%s," * len(args.target_devices) % (tuple(args.target_devices))
 if not os.path.isfile(filename):
@@ -709,6 +782,7 @@ with open(filename, 'a') as f:
                 str(args.representation),
                 str(args.gnn_type),
                 str(args.num_trials),
+                str(args.sampling_method),
                 str("_".join([str(zlx) for zlx in args.op_fp_gcn_out_dims])),
                 str("_".join([str(zlx) for zlx in args.forward_gcn_out_dims])),
                 str("_".join([str(zlx) for zlx in args.replace_bgcn_mlp_dims])),

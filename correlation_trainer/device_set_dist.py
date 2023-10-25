@@ -54,21 +54,16 @@ for i, key in enumerate(keys):
 G = convert_matrix_to_graph(matrix)
 bisect_m, bisect_n = kernighan_lin_bisection(G, max_iter=10, weight='weight', seed=42)
 B = create_bipartite_graph(bisect_m, bisect_n, nb2corrs, keys)
-# while len(B.nodes()) > (m+n):
 while len(nx.bipartite.sets(B)[0]) > m or len(nx.bipartite.sets(B)[1]) > n:
     left = nx.bipartite.sets(B)[0]
     right = nx.bipartite.sets(B)[1]
     if len(left) > m:
         node_weights = {node: sum([B[node][neighbor]['weight'] for neighbor in B.neighbors(node)]) for node in nx.bipartite.sets(B)[0]}
         min_weight_node = max(node_weights, key=node_weights.get)
-        # Instead of choosing max, sort it first
-        # min_weight_node = random.choice(sorted(node_weights, key=node_weights.get)[::-1][:(m - 2)])
         B.remove_node(min_weight_node)
-    # else:
     if len(right) > n:
         node_weights = {node: sum([B[node][neighbor]['weight'] for neighbor in B.neighbors(node)]) for node in nx.bipartite.sets(B)[1]}
         min_weight_node = max(node_weights, key=node_weights.get)
-        # min_weight_node = random.choice(sorted(node_weights, key=node_weights.get)[::-1][:(n - 1)])
         B.remove_node(min_weight_node)
 
 if True:

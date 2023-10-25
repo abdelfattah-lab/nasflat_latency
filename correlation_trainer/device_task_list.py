@@ -28,7 +28,7 @@ class HardwareDataset:
                     "test": ['1080ti_1', '2080ti_1', 'titan_rtx_1']
                 },
                 5: {
-                    # 
+                    # GPU,CPU,mCPU to ASIC,CPU,eTPU
                     "train": ["titan_rtx_1","titan_rtx_32","titanxp_1","2080ti_1","titanx_1","1080ti_1","titanx_32","titanxp_32","2080ti_32","1080ti_32","gold_6226","samsung_s7","silver_4114","gold_6240","silver_4210r","samsung_a50","pixel2"],
                     "test": ["eyeriss","desktop_gpu_gtx_1080ti_fp32","embedded_tpu_edge_tpu_int8"]
                 },
@@ -42,7 +42,7 @@ class HardwareDataset:
                 0: {
                     # GPU,CPU,eCPU to GPU,CPU [DEFAULT HELP/MultiPredict]
                     "train": ["1080ti_1","1080ti_32","1080ti_64","silver_4114","silver_4210r","samsung_a50","pixel3","essential_ph_1","samsung_s7"],
-                    "test": ["titanx_1","titanx_32","titanx_64","gold_6240"]
+                    "test": ['fpga','raspi4','eyeriss']
                 },
                 1: {
                     # mCPU,CPU,GPU to ASIC,FPGA,eCPU
@@ -65,7 +65,7 @@ class HardwareDataset:
                     "test": ['1080ti_1', 'pixel2', 'essential_ph_1'],
                 },
                 5: {
-                    # 
+                    # GPU to CPU,mCPU
                     "train": ["1080ti_1","1080ti_32","1080ti_64","2080ti_1","2080ti_32","2080ti_64","titan_rtx_1","titan_rtx_32","titan_rtx_64","titanx_1","titanx_32","titanx_64","titanxp_1","titanxp_32","titanxp_64"],
                     "test": ["gold_6226","essential_ph_1","samsung_s7","pixel2"]
                 },
@@ -80,8 +80,12 @@ class HardwareDataset:
     def get_data(self, space, index):
         return self.data.get(space, {}).get(index, None)
 
+devlist = {"nb201" : ["GPU,CPU,mCPU|GPU,CPU,FPGA,eCPU,ASIC","eTPU,ASIC,mGPU,mCPU|GPU","GPU|eGPU,eTPU,eCPU,DSP","CPU,eGPU,ASIC,mGPU,mDSP|GPU","CPU,eGPU,eTPU,ASIC,mCPU,mDSP,mCPU,mGPU|GPU","GPU,CPU,mCPU|ASIC,CPU,eTPU"],
+            "fbnet" : ["GPU,CPU,eCPU|GPU,CPU", "mCPU,CPU,GPU|ASIC,FPGA,eCPU","mCPU,CPU,FPGA|GPU","mCPU,FPGA|GPU","GPU,ASIC,CPU,eCPU,mCPU|GPU,mCPU","GPU|CPU,mCPU"]}
+devices = devlist['nb201'] + devlist['fbnet']
+devices = set([item for sublist in devices for item in sublist.replace("|", ",").split(',')])
 def generate_latex_table(devices, devlist):
-    header = " & ".join(["Device"] + [f"nb201-{i+1}" for i in range(len(devlist['nb201']))] + [f"fbnet-{i+1}" for i in range(len(devlist['fbnet']))])
+    header = " & ".join(["Device"] + [f"N{i}" for i in range(len(devlist['nb201']))] + [f"F{i}" for i in range(len(devlist['fbnet']))])
     header += " \\\\ \\hline \n"
 
     table_content = ""
@@ -97,6 +101,10 @@ def generate_latex_table(devices, devlist):
                     row_content.append("T")
                 else:
                     row_content.append("-")
+                if device in train.split(",") and device in test.split(","):
+                    # remove previous append
+                    row_content.pop()
+                    row_content.append("ST")
 
         table_content += " & ".join(row_content) + " \\\\ \n"
 
@@ -112,14 +120,13 @@ def generate_latex_table(devices, devlist):
 # dataset = HardwareDataset()
 # print(dataset.get_data('nb201', 1))
 # print(dataset.get_data('fbnet', 3))
-# # devices ={'mDSP', 'GPUs', 'GPU', 'mCPU', 'eTPU', 'FPGA', 'eCPU', 'eGPU', 'mGPU', 'ASIC', 'mCPU', 'DSP', 'CPU'}
+# # # devices ={'mDSP', 'GPUs', 'GPU', 'mCPU', 'eTPU', 'FPGA', 'eCPU', 'eGPU', 'mGPU', 'ASIC', 'mCPU', 'DSP', 'CPU'}
+# lz = [[item for sublist in list(x.values()) for item in sublist] for x in list(dataset.data['nb201'].values())]
+# # flatten list of list
+# devices = set([item for sublist in lz for item in sublist])
 
-# devlist = {"nb201" : ["eTPU,ASIC,mGPU,mCPU|GPU","GPU|eGPU,eTPU,eCPU,DSP","CPU,eGPU,ASIC,mGPU,mDSP|GPU","CPU,eGPU,eTPU,ASIC,mCPU,mDSP,mCPU,mGPU|GPU",],
-#             "fbnet" : ["mCPU,CPU,GPU|ASIC,FPGA,eCPU","mCPU,CPU,FPGA|GPU","mCPU,FPGA|GPU","GPU,ASIC,CPU,eCPU,mCPU|GPU,mCPU",]}
-# devices = devlist['nb201'] + devlist['fbnet']
-# devices = set([item for sublist in devices for item in sublist.replace("|", ",").split(',')])
 
-# print(generate_latex_table(devices, devlist))
+print(generate_latex_table(devices, devlist))
 # flatten list of list called 'dl'
 # dl = [item for sublist in devlist for item in sublist.split('|')]
 # I have 4 different 'device sets', each device set has a 'train' and 'test'. The train and test set is demarcated by '|', and the type of devices in each set is separated by ','.

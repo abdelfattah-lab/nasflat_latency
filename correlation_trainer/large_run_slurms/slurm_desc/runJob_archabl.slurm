@@ -16,4 +16,4 @@ conda activate unr
 
 cd /home/ya255/projects/flan_hardware/correlation_trainer
 
-python main_trf.py --seed 42 --name_desc arch_abl --sample_sizes 512 --representation adj_gin --num_trials 7 --transfer_sample_sizes 5 10 20 --transfer_lr 0.0001 --transfer_epochs 20 --hwemb_to_mlp --task_index 3 --space fbnet
+python main_trf.py --seed 42 --name_desc arch_abl_f0 --sample_sizes 512 --representation adj_gin --num_trials 7 --transfer_sample_sizes 5 10 20 --transfer_lr 0.0001 --transfer_epochs 20 --hwemb_to_mlp --task_index 0 --space fbnet

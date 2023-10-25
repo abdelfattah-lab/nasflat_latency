@@ -63,6 +63,7 @@ class HELP:
         self.nas_target_device = args.nas_target_device
         self.latency_constraint = args.latency_constraint
         # Data
+        # import pdb; pdb.set_trace()
         self.data = Data(args.mode,
                         args.data_path, 
                         args.search_space,
@@ -267,9 +268,9 @@ class HELP:
                                     save_dict['task_lr'] = {k: v.cpu() for k, v in self.task_lr.items()}
                                     for k, v in self.task_lr.items():
                                        self.task_lr[k].cuda()
-                                save_path = os.path.join(self.save_path, 'checkpoint', f'help_max_corr.pt')
-                                torch.save(save_dict, save_path)
-                                print(f'==> save {save_path}')
+                                # save_path = os.path.join(self.save_path, 'checkpoint', f'help_max_corr.pt')
+                                torch.save(save_dict, self.load_path)
+                                print(f'==> save {self.load_path}')
                                 self.model.cuda()
                         logging.info(msg)
                     t.set_postfix(postfix)
@@ -306,6 +307,7 @@ class HELP:
         avg_metrics['mse_loss'] = 0.0
 
         tasks = self.data.generate_test_tasks(split) 
+        # import pdb; pdb.set_trace()
         # create a dict to store the kendalltau for the yq_hat_mean and yq of each task
         # corrs_dict = defaultdict(list)
         corrs_dict = {}
