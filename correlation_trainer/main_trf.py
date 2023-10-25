@@ -481,6 +481,26 @@ def get_distinct_cosine_centers(arch2vecs_, n):
         distinct_indices.append(next_index)
     return [keys[i] for i in distinct_indices]
 
+# def get_distinct_cosine_centers_avg(arch2vecs_, n):
+#     vectors = np.array(list(arch2vecs_.values()))
+#     keys = list(arch2vecs_.keys())
+    
+#     avg_similarities = []
+
+#     # Compute average cosine similarity for each vector
+#     for idx, v in enumerate(vectors):
+#         similarities = cosine_similarity(vectors, v.reshape(1, -1))
+#         avg_similarity = np.mean(similarities)
+#         avg_similarities.append(avg_similarity)
+
+#     # Sort indices based on average similarity (ascending order) and pick top 'n' 
+#     distinct_indices = np.argsort(avg_similarities)[:n]
+
+#     return [keys[i] for i in distinct_indices]
+
+import numpy as np
+import random
+
 def get_distinct_cosine_centers_avg(arch2vecs_, n):
     vectors = np.array(list(arch2vecs_.values()))
     keys = list(arch2vecs_.keys())
@@ -493,25 +513,59 @@ def get_distinct_cosine_centers_avg(arch2vecs_, n):
         avg_similarity = np.mean(similarities)
         avg_similarities.append(avg_similarity)
 
-    # Sort indices based on average similarity (ascending order) and pick top 'n' 
-    distinct_indices = np.argsort(avg_similarities)[:n]
+    # Sort indices based on average similarity (ascending order) 
+    sorted_indices = np.argsort(avg_similarities)
+    
+    # Split the sorted indices into n buckets
+    buckets = np.array_split(sorted_indices, n)
 
-    return [keys[i] for i in distinct_indices]
+    # Randomly select one index from each bucket
+    selected_indices = [random.choice(bucket) for bucket in buckets]
+    
+    return [keys[i] for i in selected_indices]
+
+from sklearn.cluster import KMeans
+import time
+import random
 
 def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
-    vectors = list(arch2vecs_.values())
+    vectors = np.array(list(arch2vecs_.values()))
+    keys = list(arch2vecs_.keys())
+    
     print("Conducting KMeans...")
     start = time.time()
     kmeans = KMeans(n_clusters=n).fit(vectors)
-    # Choose the vectors closest to the centroids as the representatives
-    distinct_indices = []
-    for center in kmeans.cluster_centers_:
-        distances = np.linalg.norm(vectors - center, axis=1)
-        distinct_indices.append(np.argmin(distances))
-    # Return the corresponding keys from the arch2vecs_ dictionary
-    keys = list(arch2vecs_.keys())
     print("KMeans took {} seconds".format(time.time() - start))
-    return [keys[i] for i in distinct_indices]
+    
+    # Get labels of each point to know which cluster each point belongs to
+    labels = kmeans.labels_
+
+    # Create a list of empty buckets
+    buckets = [[] for _ in range(n)]
+    
+    # Populate the buckets based on labels
+    for idx, label in enumerate(labels):
+        buckets[label].append(idx)
+
+    # Randomly select one index from each bucket
+    selected_indices = [random.choice(bucket) for bucket in buckets]
+
+    return [keys[i] for i in selected_indices]
+
+# def get_distinct_arch2vecs_kmeans(arch2vecs_, n):
+#     vectors = list(arch2vecs_.values())
+#     print("Conducting KMeans...")
+#     start = time.time()
+#     kmeans = KMeans(n_clusters=n).fit(vectors)
+#     # Choose the vectors closest to the centroids as the representatives
+#     distinct_indices = []
+#     for center in kmeans.cluster_centers_:
+#         distances = np.linalg.norm(vectors - center, axis=1)
+#         distinct_indices.append(np.argmin(distances))
+#     # Return the corresponding keys from the arch2vecs_ dictionary
+#     keys = list(arch2vecs_.keys())
+#     print("KMeans took {} seconds".format(time.time() - start))
+#     return [keys[i] for i in distinct_indices]
 
 def get_distinct_index(args, embedding_gen, space, sample_count, metric, device): # [random, params, arc2vec, cate, zcp, a2vcatezcp, accuracy/latency (oracle)]
     if metric == 'random':
@@ -555,7 +609,7 @@ space = args.space
 for tr_ in range(args.num_trials):
     for sample_count in sample_counts:
         # Create a function that chooses the best networks with a provided strategy, use only those networks
-        train_samps = get_distinct_index(args, embedding_gen, args.space, sample_count, args.sampling_metric, args.metric_device)
+        train_samps = get_distinct_index(args, embedding_gen, args.space, sample_count, "random", args.metric_device)
         # Create a train data-loader with 'sample_count' samples of each 'source_device'
         train_dataloader, train_indexes = get_dataloader(args, embedding_gen, args.space, representation=args.representation, mode='train', indexes=train_samps, devices=args.source_devices, batch_specified=128)
         total_samples = embedding_gen.get_numitems(space) if space not in ['nb101', 'fbnet', 'nb201', 'nb301', 'tb101'] else embedding_gen.get_numitems()
