@@ -80,6 +80,53 @@ class HardwareDataset:
     def get_data(self, space, index):
         return self.data.get(space, {}).get(index, None)
 
+
+    def format_device_list(self, device_list):
+        # Insert line breaks after every 3 devices
+        grouped_devices = [", ".join(device_list[i:i+3]) for i in range(0, len(device_list), 3)]
+        formatted_str = " \\\\\n".join(["& & \\texttt{" + device.replace('_', '\\_') + "}" for group in grouped_devices for device in group.split(', ')])
+        return formatted_str
+
+    def convert_to_latex(self, space):
+        # LaTeX table header
+        latex_str = """\\begin{table*}[h]
+\\centering
+\\begin{tabular}{|c|c|l|}
+\\cmidrule(lr){1-1} \\cmidrule(lr){2-2} \\cmidrule(lr){3-3} \\addlinespace[0.5ex]
+\\textbf{Task Index} & \\textbf{Type} & \\textbf{Devices} \\\\
+\\cmidrule(lr){1-1} \\cmidrule(lr){2-2} \\cmidrule(lr){3-3} \\addlinespace[0.5ex]
+"""
+
+        space_data = self.data[space]
+        for task_index, task_data in space_data.items():
+            # Adding the 'Train' data
+            if task_index != 9999:
+                train_devices = self.format_device_list(task_data["train"])
+                latex_str += "{0} & Train & {1} \\\\ \n".format(task_index, train_devices)
+                
+                # Adding the 'Test' data
+                test_devices = self.format_device_list(task_data["test"])
+                latex_str += "& Test & {0} \\\\ \\cmidrule(lr){{1-1}} \\cmidrule(lr){{2-2}} \\cmidrule(lr){{3-3}} \\addlinespace[0.5ex]\n".format(test_devices)
+
+        # LaTeX table footer
+        latex_str += """\\end{tabular}
+\\caption{Hardware devices for space: %s}
+\\end{table*}""" % space
+
+        return latex_str
+
+
+# Example usage
+dataset = HardwareDataset()
+
+# NB201 table
+nb201_table = dataset.convert_to_latex('nb201')
+print(nb201_table)
+
+# FBNet table
+fbnet_table = dataset.convert_to_latex('fbnet')
+print(fbnet_table)
+exit(0)
 devlist = {"nb201" : ["GPU,CPU,mCPU|GPU,CPU,FPGA,eCPU,ASIC","eTPU,ASIC,mGPU,mCPU|GPU","GPU|eGPU,eTPU,eCPU,DSP","CPU,eGPU,ASIC,mGPU,mDSP|GPU","CPU,eGPU,eTPU,ASIC,mCPU,mDSP,mCPU,mGPU|GPU","GPU,CPU,mCPU|ASIC,CPU,eTPU"],
             "fbnet" : ["GPU,CPU,eCPU|GPU,CPU", "mCPU,CPU,GPU|ASIC,FPGA,eCPU","mCPU,CPU,FPGA|GPU","mCPU,FPGA|GPU","GPU,ASIC,CPU,eCPU,mCPU|GPU,mCPU","GPU|CPU,mCPU"]}
 devices = devlist['nb201'] + devlist['fbnet']
@@ -126,7 +173,115 @@ def generate_latex_table(devices, devlist):
 # devices = set([item for sublist in lz for item in sublist])
 
 
+
 print(generate_latex_table(devices, devlist))
+if True:
+    import sys
+    import pandas as pd
+    from scipy.stats import spearmanr
+    import numpy as np
+    sys.path.append("..")
+    from nas_embedding_suite.fbnet_ss import FBNet as fbnetclass
+    fbnet_embgen = fbnetclass(normalize_zcp=True, log_synflow=True)
+    from nas_embedding_suite.nb201_ss import NASBench201  as nbclass
+    nb201_embgen = nbclass(normalize_zcp=True, log_synflow=True)
+    arch2vec_fbnet = pd.DataFrame({i: fbnet_embgen.get_arch2vec(i) for i in range(fbnet_embgen.get_numitems())})
+    cate_fbnet = pd.DataFrame({i: fbnet_embgen.get_cate(i) for i in range(fbnet_embgen.get_numitems())})
+    zcp_fbnet = pd.DataFrame({i: fbnet_embgen.get_zcp(i) for i in range(fbnet_embgen.get_numitems())})
+    arch2vec_nb2 = pd.DataFrame({i: nb201_embgen.get_arch2vec(i) for i in range(nb201_embgen.get_numitems())})
+    cate_nb2 = pd.DataFrame({i: nb201_embgen.get_cate(i) for i in range(nb201_embgen.get_numitems())})
+    zcp_nb2 = pd.DataFrame({i: nb201_embgen.get_zcp(i) for i in range(nb201_embgen.get_numitems())})
+    test_idx = 0
+    for test_idx in [0,1,2,3,4,5]:
+        dataset = HardwareDataset()
+        nb2devs = dataset.get_data('nb201', test_idx)['test']
+        fbdevs = dataset.get_data('fbnet', test_idx)['test']
+        nb2devlats = {dev: {i: nb201_embgen.get_latency(i) for i in range(nb201_embgen.get_numitems())} for dev in nb2devs}
+        fbdevlats = {dev: {i: fbnet_embgen.get_latency(i) for i in range(fbnet_embgen.get_numitems())} for dev in fbdevs}
+        nb2devmaxcorr = {dev: {"cate": -1, "zcp": -1, "arch2vec": -1} for dev in nb2devs}
+        for dev in nb2devs:
+            devlatency = np.asarray(list(nb2devlats[dev].values()))
+            maxcorr = -1
+            for idx in list(cate_nb2.index):
+                spr = spearmanr(devlatency, np.asarray(cate_nb2.loc[idx].tolist())).correlation
+                if spr > maxcorr:
+                    maxcorr = spr
+            nb2devmaxcorr[dev]["cate"] = maxcorr
+            maxcorr = -1
+            for idx in list(zcp_nb2.index):
+                spr = spearmanr(devlatency, np.asarray(zcp_nb2.loc[idx].tolist())).correlation
+                if spr > maxcorr:
+                    maxcorr = spr
+            nb2devmaxcorr[dev]["zcp"] = maxcorr
+            maxcorr = -1
+            for idx in list(arch2vec_nb2.index):
+                spr = spearmanr(devlatency, np.asarray(arch2vec_nb2.loc[idx].tolist())).correlation
+                if spr > maxcorr:
+                    maxcorr = spr
+            nb2devmaxcorr[dev]["arch2vec"] = maxcorr
+        fbdevmaxcorr = {dev: {"cate": -1, "zcp": -1, "arch2vec": -1} for dev in fbdevs}
+        for dev in fbdevs:
+            devlatency = np.asarray(list(fbdevlats[dev].values()))
+            maxcorr = -1
+            for idx in list(cate_fbnet.index):
+                spr = spearmanr(devlatency, np.asarray(cate_fbnet.loc[idx].tolist())).correlation
+                if spr > maxcorr:
+                    maxcorr = spr
+            fbdevmaxcorr[dev]["cate"] = maxcorr
+            maxcorr = -1
+            for idx in list(zcp_fbnet.index):
+                spr = spearmanr(devlatency, np.asarray(zcp_fbnet.loc[idx].tolist())).correlation
+                if spr > maxcorr:
+                    maxcorr = spr
+            fbdevmaxcorr[dev]["zcp"] = maxcorr
+            maxcorr = -1
+            for idx in list(arch2vec_fbnet.index):
+                spr = spearmanr(devlatency, np.asarray(arch2vec_fbnet.loc[idx].tolist())).correlation
+                if spr > maxcorr:
+                    maxcorr = spr
+            fbdevmaxcorr[dev]["arch2vec"] = maxcorr
+        print("Test set correlation with each of the arch2vec, cate, zcp encodings for task index: ", test_idx)
+        print("NB201")
+        print(nb2devmaxcorr)
+        print("FBNet")
+        print(fbdevmaxcorr)
+        # now, find the correlation BETWEEN devices in the training set
+        nb2_traindevs = dataset.get_data('nb201', test_idx)['train']
+        fb_traindevs = dataset.get_data('fbnet', test_idx)['train']
+        nb2_traindevlats = {dev: {i: nb201_embgen.get_latency(i) for i in range(nb201_embgen.get_numitems())} for dev in nb2_traindevs}
+        fb_traindevlats = {dev: {i: fbnet_embgen.get_latency(i) for i in range(fbnet_embgen.get_numitems())} for dev in fb_traindevs}
+        nb2_traindevmaxcorr = {dev: -1 for dev in nb2_traindevs}
+        for dev in nb2_traindevs:
+            devlatency = np.asarray(list(nb2_traindevlats[dev].values()))
+            maxcorr = -1
+            for dev2 in list(pd.DataFrame(nb2_traindevlats).columns):
+                if dev != dev2:
+                    spr = spearmanr(devlatency, np.asarray(nb2_traindevlats[dev2].tolist())).correlation
+                    if spr > maxcorr:
+                        maxcorr = spr
+            nb2_traindevmaxcorr[dev] = maxcorr
+        fb_traindevmaxcorr = {dev: -1 for dev in fb_traindevs}
+        for dev in fb_traindevs:
+            devlatency = np.asarray(list(fb_traindevlats[dev].values()))
+            maxcorr = -1
+            for dev2 in list(pd.DataFrame(fb_traindevlats).columns):
+                if dev != dev2:
+                    spr = spearmanr(devlatency, np.asarray(fb_traindevlats[dev2].tolist())).correlation
+                    if spr > maxcorr:
+                        maxcorr = spr
+            fb_traindevmaxcorr[dev] = maxcorr
+        print("Correlation within devices in the training set for task index: ", test_idx)
+        print(nb2_traindevmaxcorr)
+        print(fb_traindevmaxcorr)
+                    
+        # for cateaxis in range(cate_nb2[0].shape[1]):
+        #     spearmanr(devlatency, cate_nb2[0][:,cateaxis]).correlation
+        #     # if spearmanr is greater than max_cate_corr, then max_cate_corr = spearmanr
+        # spearmanr(devlatency, cate_nb2[0])
+        # Then, find the arch2vec_nb2 that is closest to the devlatency in spearmanr
+        # Then, find the zcp_nb2 that is closest to the devlatency in spearmanr
+        
+
 # flatten list of list called 'dl'
 # dl = [item for sublist in devlist for item in sublist.split('|')]
 # I have 4 different 'device sets', each device set has a 'train' and 'test'. The train and test set is demarcated by '|', and the type of devices in each set is separated by ','.

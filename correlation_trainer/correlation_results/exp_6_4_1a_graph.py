@@ -133,11 +133,10 @@ def generate_2s_combined_graph_from_csv(file_path_fbnet, file_path_nb201):
     df_nb201 = df_nb201[["task_index", "sample_sizes", "spr", "sampling_metric", "spr_std"]]
     # Add "N" to the task indices to distinguish them from the task indices in the other CSV
     df_nb201["task_index"] = df_nb201["task_index"].apply(lambda x: "N" + str(x))
-    import pdb; pdb.set_trace()
 
     # Get the first two unique task indices
-    task_indices_fbnet = sorted(list(set(df_fbnet.task_index.tolist())))[2:4]
-    task_indices_nb201 = sorted(list(set(df_nb201.task_index.tolist())))[2:4]
+    task_indices_fbnet = sorted(list(set(df_fbnet.task_index.tolist())))[:2]
+    task_indices_nb201 = sorted(list(set(df_nb201.task_index.tolist())))[:2]
 
     # Filter data based on these indices
     df_fbnet = df_fbnet[df_fbnet["task_index"].isin(task_indices_fbnet)]
