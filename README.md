@@ -2,10 +2,6 @@
 
 This repository contains the necessary resources and instructions to reproduce the results presented in our paper "On Latency Predictors for Neural Architecture Search." Our work introduces a comprehensive suite of latency prediction tasks and a novel latency predictor, NASFLAT, that significantly outperforms existing methods in hardware-aware NAS.
 
-## Abstract
-
-We address the challenge of co-optimizing accuracy and latency in neural network deployment, crucial for hardware-aware neural architecture search (NAS). Our work introduces a suite of latency prediction tasks and a latency predictor that incorporates advanced techniques in predictor architecture, NN sample selection, hardware device representation, and operation encoding schemes. The predictor, NASFLAT, demonstrates superior performance in latency prediction, facilitating a more efficient NAS process.
-
 ## Environment Setup
 
 - Ensure the `env_setup.py` script is executed correctly for environment setup. Modify the script paths as necessary for your system.
