@@ -13,7 +13,7 @@ We address the challenge of co-optimizing accuracy and latency in neural network
 ## Dataset Preparation
 
 - Download the NDS dataset from [here](https://dl.fbaipublicfiles.com/nds/data.zip) and place it in the `nas_embedding_suite` folder with the structure `NDS/nds_data/*.json`.
-- Download and unzip `nasflat_embeddings_04_03_24.zip` into `./nas_embedding_suite/` from [Google Drive](https://drive.google.com/file/d/1oJyH0zox_cbRUX-hgzkliOLAUaz3gIxw/view?usp=sharing).
+- Download and unzip `nasflat_embeddings_04_03_24.zip` into `./nas_embedding_suite/` from [Google Drive](https://drive.google.com/file/d/1E_LJRJZvxq_Z2AbFzVNcEforBIY1xF9G/view?usp=sharing).
 
 ## Execution Instructions
 
