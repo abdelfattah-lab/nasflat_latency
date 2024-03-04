@@ -17,14 +17,6 @@ This repository contains the necessary resources and instructions to reproduce t
 - To reproduce results for MultiPredict and HELP, refer to `multipredict_unified_joblist.log` and `help_unified_joblist.log`.
 - For SLURM setups, use `parallelized_executor.sh`, adapting it as necessary for your environment. These commands can also be adjusted for non-SLURM execution.
 
-## Contributions
-
-1. **NN Sampling Methods:** We improve few-shot latency predictor efficiency by investigating and testing different NN sampling methods.
-2. **Operation Embeddings:** Introducing hardware-specific NN operation embeddings and supplementary encodings, we enhance prediction accuracy significantly.
-3. **NASFLAT Predictor:** NASFLAT combines effective techniques to deliver substantial improvements in latency prediction, aiding faster and more efficient NAS.
-
-Our methodology provides deep insights into latency predictor design, yielding substantial improvements across a variety of experimental settings and demonstrating considerable speed-up in NAS processes.
-
 ## Example Executions
 
 Below are specific example commands that demonstrate how to execute various processes within the framework. These examples cover training from scratch, utilizing supplementary encodings, transferring predictors between spaces, and running NAS on a given search space.
