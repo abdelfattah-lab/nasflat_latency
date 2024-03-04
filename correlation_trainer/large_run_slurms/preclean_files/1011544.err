@@ -1,21 +1,0 @@
-  0%|          | 0/64 [00:00<?, ?it/s]100%|██████████| 64/64 [00:00<00:00, 2416.16it/s]
-  0%|          | 0/15560 [00:00<?, ?it/s] 13%|█▎        | 2030/15560 [00:00<00:00, 20291.70it/s] 27%|██▋       | 4234/15560 [00:00<00:00, 21164.56it/s] 41%|████▏     | 6442/15560 [00:00<00:00, 21580.01it/s] 57%|█████▋    | 8807/15560 [00:00<00:00, 22393.77it/s] 71%|███████   | 11047/15560 [00:00<00:00, 22127.29it/s] 86%|████████▌ | 13329/15560 [00:00<00:00, 22358.36it/s]100%|██████████| 15560/15560 [00:00<00:00, 22174.82it/s]
-  0%|          | 0/80 [00:00<?, ?it/s]100%|██████████| 80/80 [00:00<00:00, 22310.13it/s]
-/home/ya255/projects/flan_hardware/correlation_trainer/models_abl.py:437: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:230.)
-  adjs = self.input_op_emb.new([arch.T for arch in archs[0]])
-Traceback (most recent call last):
-  File "main_abl.py", line 524, in <module>
-    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader_lowbs, epoch)
-  File "main_abl.py", line 155, in pwl_train
-    s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=None, norm_w_d=norm_w_d_1).squeeze()
-  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
-    return forward_call(*input, **kwargs)
-  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl.py", line 737, in forward
-    y_1 = self._forward_pass(y_1, adjs_1, op_emb_1)
-  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl.py", line 491, in _forward_pass
-    y = gcn(y, adjs, auged_op_emb)
-  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
-    return forward_call(*input, **kwargs)
-  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl.py", line 111, in forward
-    support = torch.matmul(inputs, self.weight) # no mismatch here, adj-shape propagated
-RuntimeError: mat1 and mat2 shapes cannot be multiplied (224x128 and 96x128)

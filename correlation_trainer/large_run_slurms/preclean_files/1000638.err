@@ -1,1 +1,0 @@
-/var/spool/slurmd/job1000638/slurm_script: line 19: 718834 Illegal instruction     (core dumped) python main_abl.py --seed 42 --name_desc archabl --sample_sizes 64 128 --batch_size 8 --space nb101 --timesteps 3 --representation adj_gin --gnn_type dense --forward_gcn_out_dims 128 128 128 --backward_gcn_out_dims 128 128 128 --replace_bgcn_mlp_dims 128 128 128 --num_trials 5

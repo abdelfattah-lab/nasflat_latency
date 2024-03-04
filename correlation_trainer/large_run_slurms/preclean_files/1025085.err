@@ -1,23 +1,0 @@
-  0%|          | 0/8 [00:00<?, ?it/s]100%|██████████| 8/8 [00:00<00:00, 168.77it/s]
-  0%|          | 0/4990 [00:00<?, ?it/s] 20%|█▉        | 992/4990 [00:00<00:00, 9919.21it/s] 40%|███▉      | 1984/4990 [00:00<00:00, 9850.28it/s] 60%|█████▉    | 2970/4990 [00:00<00:00, 9850.06it/s] 79%|███████▉  | 3965/4990 [00:00<00:00, 9886.22it/s] 99%|█████████▉| 4964/4990 [00:00<00:00, 9922.38it/s]100%|██████████| 4990/4990 [00:00<00:00, 9895.15it/s]
-  0%|          | 0/80 [00:00<?, ?it/s]100%|██████████| 80/80 [00:00<00:00, 10127.81it/s]
-/home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py:488: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:230.)
-  adjs = self.input_op_emb.new([arch.T for arch in archs[0]])
-Traceback (most recent call last):
-  File "main_abl.py", line 529, in <module>
-    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader_lowbs, epoch)
-  File "main_abl.py", line 171, in pwl_train
-    s_1 = model(x_ops_1=X_ops_a_1, x_adj_1=X_adj_a_1.to(torch.long), x_ops_2=X_ops_b_1, x_adj_2=X_adj_b_1.to(torch.long), zcp=None, norm_w_d=norm_w_d_1).squeeze()
-  File "/home/ya255/.conda/envs/unr/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
-    return forward_call(*input, **kwargs)
-  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py", line 549, in forward
-    y_1 = self._process_architecture(x_1, adjs_1, op_emb_1, op_inds_1)
-  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py", line 538, in _process_architecture
-    y = self._forward_pass(x, adjs, op_emb)
-  File "/home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py", line 538, in _process_architecture
-    y = self._forward_pass(x, adjs, op_emb)
-  File "/home/ya255/.conda/envs/unr/lib/python3.7/bdb.py", line 88, in trace_dispatch
-    return self.dispatch_line(frame)
-  File "/home/ya255/.conda/envs/unr/lib/python3.7/bdb.py", line 113, in dispatch_line
-    if self.quitting: raise BdbQuit
-bdb.BdbQuit

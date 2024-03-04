@@ -1,9 +1,0 @@
-Loading files for NASBench201...
-Normalizing ZCP dict
-try to create the NAS-Bench-201 api from /home/ya255/projects/flan_hardware/nas_embedding_suite/embedding_datasets/NAS-Bench-201-v1_1-096897.pth
-Loaded files in:  102.20265650749207  seconds
-Loading cache for NASBench-201 speedup!!...
-Loading cache for NASBench-201 speedup!!...
-> /home/ya255/projects/flan_hardware/correlation_trainer/models_abl_p2.py(538)_process_architecture()
--> y = self._forward_pass(x, adjs, op_emb)
-(Pdb) 
