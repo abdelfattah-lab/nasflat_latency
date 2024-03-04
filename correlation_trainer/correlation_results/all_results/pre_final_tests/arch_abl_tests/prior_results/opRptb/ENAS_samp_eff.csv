@@ -1,3 +1,0 @@
-name_desc,seed,batch_size,epochs,space,task,representation,timesteps,pwl_mse,test_tagates,gnn_type,back_dense,key,residual,leakyrelu,uap,opattn,attnresc,fgcn,bgcn,bmlp,bmlpdims,fbcd,back_y_info,back_opemb,ensemble_fuse_method,back_opemb_only,randopupdate,spr,kdt,spr_std,kdt_std
-opRptb,42,8,150,ENAS,class_scene,adj_gin,2,pwl,False,dense,False,64,True,True,True,True,True,128_128_128,128_128_128,False,128_128_128,128_128,False,False,add,False,True,0.4888084092046264,0.3397096800037,0.0017914039537653484,0.0010233424678227853
-opRptb,42,8,150,ENAS,class_scene,adj_gin,2,pwl,False,dense,False,128,True,True,True,True,True,128_128_128,128_128_128,False,128_128_128,128_128,False,False,add,False,True,0.6412476578015841,0.4611087851940364,0.0010257641813975816,0.0007901428114505682

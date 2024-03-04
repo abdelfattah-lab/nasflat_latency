@@ -377,7 +377,7 @@ class HELP:
         ysh_min = min(ys_hat)
         ysh_max = max(ys_hat)
 
-        denorm_yq_hat = denorm((yq_hat-ysh_min)/(ysh_max-ysh_min), max(ys_gt), min(ys_gt))
+        denorm_yq_hat = denorm((yq_hat-ysh_min)/(ysh_max-ysh_min), max(ys_gt), min(ys_gt)) # here, ysh min max are the model min max. then denorm it wrt ground truth min max
         denorm_mse = self.loss_fn(denorm_yq_hat.cuda(), yq_gt) 
         return denorm_yq_hat, denorm_mse 
       
@@ -400,40 +400,188 @@ class HELP:
             self._nas_metad2a()
 
     def _nas_metad2a(self):
-        save_file_path = os.path.join(self.save_path, f'nas_results_{self.nas_target_device}.txt')
-        f = open(save_file_path, 'a+')
-        
-        self.load_model()
+        accmtr, latmtr = [], []
+        for _ in range(5):
+            try:
+                save_file_path = os.path.join(self.save_path, f'nas_results_{self.nas_target_device}.txt')
+                f = open(save_file_path, 'a+')
+                
+                # instead of this, load OUR model trained on task 8989 for 900 samples. 
+                # import sys
+                # sys.path.append("..")
+                # sys.path.append("/home/ya255/projects/flan_hardware/correlation_trainer")
+                from models_abl_p2 import GIN_Model
+                def create_gin_model(input_dim, num_zcps, dual_gcn, input_zcp, args):
+                    none_op_ind = 130  # placeholder
+                    return GIN_Model(
+                        device=args.source_devices,
+                        cpu_gpu_device="cuda:0",
+                        dual_gcn=False,
+                        num_zcps=13,
+                        hwemb_to_mlp=False,
+                        vertices=input_dim,
+                        none_op_ind=none_op_ind,
+                        op_embedding_dim=48,
+                        node_embedding_dim=48,
+                        zcp_embedding_dim=48,
+                        hid_dim=96,
+                        forward_gcn_out_dims=[128, 128, 128],
+                        op_fp_gcn_out_dims=[128, 128],
+                        mlp_dims=[200, 200, 200],
+                        dropout=0.0,
+                        replace_bgcn_mlp_dims=[128, 128, 128],
+                        input_zcp=False,
+                        zcp_embedder_dims=[128, 128],
+                        updateopemb_dims = [128],
+                        ensemble_fuse_method="add",
+                        gtype="ensemble"
+                    )
 
-        search_results = {}
-        task = self.data.get_nas_task(self.nas_target_device)
-        hw_embed, xs, ys, xq, yq, device, ys_gt, yq_gt = task
+                search_results = {}
+                # Check this get_nas_task to see if we can choose our own sampler
+                import sys
+                sys.path.append("/home/ya255/projects/flan_hardware/")
+                sys.path.append(os.environ['PROJ_BPATH'] + "/" + 'nas_embedding_suite')
+                from nas_embedding_suite.nb201_ss import NASBench201 as EmbGenClass
+                task = self.data.get_nas_task(self.nas_target_device)
+                # here, we have xs which has the module adjacency and operation matrix
+                # then xq yq and are 500 more samples i guess to measure the loss
+                hw_embed, xs, ys, xq, yq, device, ys_gt, yq_gt, finetune_idx, metad2a_idx = task
+                # save the zip of yq_gt and self.data.arch_candidates['true_acc'] into a file named f'true_latacc_{self.nas_target_device}.pkl'
+                import pickle
+                with open(f'true_latacc_{self.nas_target_device}.pkl', 'wb') as f:
+                    pickle.dump((yq_gt, self.data.arch_candidates['true_acc']), f)
+                exit(0)
 
-        yq_hat_mean = None
-        for _ in range(self.mc_sampling):
-            adapted_state_dict, kl_loss = \
-                self.train_single_task(hw_embed, xs, ys, self.num_eval_updates)
-            xq, yq = (xq[0].cuda(), xq[1].cuda()), yq.cuda()
-            hw_embed = hw_embed.cuda()
-            yq_hat = self.model(xq, hw_embed, adapted_state_dict)
-            if yq_hat_mean is None:
-                yq_hat_mean = yq_hat
-            else:
-                yq_hat_mean += yq_hat
-        yq_hat_mean = yq_hat_mean / self.args.mc_sampling
-        loss = self.loss_fn(yq_hat_mean, yq)  
+                embedding_gen = EmbGenClass(normalize_zcp=True, log_synflow=True)
+                from flanutils import get_help_dataloader, pwl_flan_train
+                space, mode, devices, trainidx, testidx = 'nb201', 'train', [self.args.nas_target_device], finetune_idx, metad2a_idx
+                model = create_gin_model(xs[0][1].shape[1], 13, False, False, self.args)
+                # load model state dict from help_gold_6226.pt
+                # model.load_state_dict(torch.load("./help_gold_6226.pt"))
+                model.to("cuda:0")
+                params_optimize = list(model.parameters())
+                optimizer = torch.optim.AdamW(params_optimize, lr=0.003, weight_decay=0.00001)
+                criterion = torch.nn.MSELoss()
+                from torch.optim.lr_scheduler import CosineAnnealingLR
+                scheduler = CosineAnnealingLR(optimizer, T_max=40, eta_min=0)
+                import time
+                transfer_dataloader, _ = get_help_dataloader(embedding_gen, space, mode, trainidx.tolist(), devices, batch_specified=None, representation="adj_gin")
+                transfer_test_dataloader, _ = get_help_dataloader(embedding_gen, space, "test", testidx, devices, batch_specified=None, representation="adj_gin")
+                for epoch in range(40):
+                    start_time = time.time()
+                    model, num_test_items, mse_loss, spr, kdt, pred, truth = pwl_flan_train(model, transfer_dataloader, criterion, optimizer, scheduler, transfer_test_dataloader, epoch, total_epochs = 40)
+                    end_time = time.time()
+                    print(f'Epoch {epoch + 1}/{40} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+                    print("Spearman info: ", spearmanr(pred, yq_gt.flatten()))
+                # convert this to a data-loader that we understand, then use pwl_train 
+                yq_hat = torch.Tensor(pred)
+                # yq_gt = torch.Tensor(truth)
+                ysh_min = min(yq_hat)
+                ysh_max = max(yq_hat)
+                denorm_yq_hat = denorm((yq_hat-ysh_min)/(ysh_max-ysh_min), max(ys_gt), min(ys_gt)) # here, ysh min max are the model min max. then denorm it wrt ground truth min max
+                # Now, take the items whose latency is less than the constraint, and take the index whose accuracy is maximum
+                search_results = []
+                top = 3
+                true_acc = self.data.arch_candidates['true_acc'] # Gives true accuracy of the 500 candidates
+                arch_str = self.data.arch_candidates['arch']
+                const = float(self.latency_constraint)
+                a = time.time()
+                for dyq_hat, yq_, acc_, arch_ in \
+                                    zip(denorm_yq_hat, yq_gt, true_acc, arch_str):
+                    if dyq_hat.item() <= const:
+                        if len(search_results) < top:
+                            search_results.append({
+                                'yq': yq_, 
+                                'acc': acc_, 
+                                'arch_str': arch_
+                            })
+
+                        if len(search_results) >= top:
+                            break
+                max_acc_result = search_results[0]
+                for result in search_results:
+                    if result['acc'] > max_acc_result['acc']:
+                        max_acc_result = result
+                print("nas_cost_part_1: ", time.time() - a)
+                lat = max_acc_result['yq'].item()
+                acc = float(max_acc_result['acc'])
+                arch = max_acc_result['arch_str']
+                accmtr.append(acc)
+                latmtr.append(lat)
+                msg = f'[NAS Result] Target Device {self.nas_target_device} Constraint {const} '
+                msg += f'| Latency {lat:.1f} | Accuracy {acc:.1f} | Neural Architecture {arch}'
+                print(msg)
+            except Exception as e:
+                print("Exception: ", e)
+                
+        # Save to a file named  'results.csv', with header = "device,constraint,latency,accuracy,arch"
+        # if file doesnt exist, add the header
+        if not os.path.isfile('results2.csv'):
+            with open('results2.csv', 'a') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['device', 'nsamp', 'constraint', 'latency', 'lat_std', 'accuracy', 'acc_std', 'arch'])
+        with open('results2.csv', 'a') as csvfile:
+            writer = csv.writer(csvfile)
+            accmean = np.mean(accmtr)
+            accstd = np.std(accmtr)
+            latmean = np.mean(latmtr)
+            latstd = np.std(latmtr)
+            writer.writerow([self.nas_target_device, xs[0].shape[0], const, latmean, latstd, accmean, accstd, arch])
+        # f.write(msg+'\n')
+
+        # import pdb; pdb.set_trace()
+        exit(0)
+        # # self.load_model()
+        # import pdb; pdb.set_trace()
+        # yq_hat_mean = None
+        # for _ in range(self.mc_sampling):
+        #     # Here we adapt the network. So we should use our predictor here.
+        #     adapted_state_dict, kl_loss = \
+        #         self.train_single_task(hw_embed, xs, ys, self.num_eval_updates)
+        #     xq, yq = (xq[0].cuda(), xq[1].cuda()), yq.cuda()
+        #     hw_embed = hw_embed.cuda()
+        #     yq_hat = self.model(xq, hw_embed, adapted_state_dict)
+        #     if yq_hat_mean is None:
+        #         yq_hat_mean = yq_hat
+        #     else:
+        #         yq_hat_mean += yq_hat
+        # yq_hat_mean = yq_hat_mean / self.args.mc_sampling
+        # loss = self.loss_fn(yq_hat_mean, yq)  
+        top = 3
+        const = float(self.latency_constraint)
+        search_results = []
+        true_acc = self.data.arch_candidates['true_acc']
+        arch_str = self.data.arch_candidates['arch']
+        # we need to denormalize the 'pred' vector. 
+        # help does it by 
+
+
+
+        # # get index of lowest pred
+        # lowest_idx = torch.argmin(torch.Tensor(pred))
+        # # get the arch string of the lowest pred
+        # lowest_arch = arch_str[lowest_idx]
+        # # get the true acc of the lowest pred
+        # lowest_acc = true_acc[lowest_idx]
+        # # get the latency of the lowest pred
+        # lowest_lat = truth[lowest_idx]
+        # import pdb; pdb.set_trace() # here, we have [500, 1] probably unnormalized latency predictions.
+        # print(f'lowest arch is {lowest_arch} with acc {lowest_acc} and latency {lowest_lat}')
+        # # for pred, truth, acc, arch in zip(pred, truth, true_acc, arch_str):
+            
 
         # Denormalization
         denorm_yq_hat, denorm_mse = self._denormalization(task, yq_hat_mean, adapted_state_dict)
         search_results = []
         top = 3
-        true_acc = self.data.arch_candidates['true_acc']
+        true_acc = self.data.arch_candidates['true_acc'] # Gives true accuracy of the 500 candidates 
         arch_str = self.data.arch_candidates['arch']
         const = float(self.latency_constraint)
         for dyq_hat, yq_, acc_, arch_ in \
                             zip(denorm_yq_hat, yq_gt, true_acc, arch_str):
-            if dyq_hat.item() <= const:
-                if len(search_results) < top:
+            if dyq_hat.item() <= const: # If the prediction is lesser than the constraint
+                if len(search_results) < top: # And if we have less than 3 results, add it.
                     search_results.append({
                         'yq': yq_, 
                         'acc': acc_, 
@@ -445,8 +593,8 @@ class HELP:
         max_acc_result = search_results[0]
         for result in search_results:
             if result['acc'] > max_acc_result['acc']:
-                max_acc_result = result
-        lat = max_acc_result['yq'].item()
+                max_acc_result = result # gets max acc result out of top 3 :|
+        lat = max_acc_result['yq'].item() # this was zipped as yq_gt, which is probably ground truth latency
         acc = float(max_acc_result['acc'])
         arch = max_acc_result['arch_str']
         msg = f'[NAS Result] Target Device {self.nas_target_device} Constraint {const} '

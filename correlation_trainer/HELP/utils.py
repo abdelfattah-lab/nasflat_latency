@@ -12,8 +12,42 @@ import torch.nn as nn
 import torch.nn.functional as F
 from scipy.stats import spearmanr, kendalltau, pearsonr
 import copy
+from torch.utils.data import Dataset, DataLoader
 #import wandb
 
+
+def get_tagates_sample_indices(args):
+
+    # if args.space == 'nb201' and args.test_tagates:
+    #     print("Explicit TAGATES comparision")
+    #     with open(os.environ['PROJ_BPATH'] + "/correlation_trainer/tagates_replication/nasbench201_zsall_train.pkl", "rb") as fp:
+    #         train_data = pickle.load(fp)
+    #     with open(os.environ['PROJ_BPATH'] + "/correlation_trainer/tagates_replication/nasbench201_zsall_valid.pkl", "rb") as fp:
+    #         valid_data = pickle.load(fp)
+        
+    return [], []
+        
+class CustomDataset(Dataset):
+    def __init__(self, representations, accuracies):
+        self.representations = representations
+        self.accuracies = accuracies
+
+    def __len__(self):
+        return len(self.representations)
+
+    def __getitem__(self, idx):
+        return self.representations[idx], self.accuracies[idx]
+
+def _build_dataset(dataset, list):
+    indices = np.random.permutation(list)
+    X_adj = []
+    X_ops = []
+    for ind in indices:
+        X_adj.append(torch.Tensor(dataset[str(ind)]['module_adjacency']))
+        X_ops.append(torch.Tensor(dataset[str(ind)]['module_operations']))
+    X_adj = torch.stack(X_adj)
+    X_ops = torch.stack(X_ops)
+    return X_adj, X_ops, torch.Tensor(indices)
 
 def get_minmax_latency_index(meta_train_devices, train_idx, latency):
     rank = {}

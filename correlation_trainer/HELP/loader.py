@@ -218,7 +218,7 @@ class Data:
         latency = self.latency[device]
         # hardware embedding
         hw_embed = latency[self.hw_emb_idx]
-        hw_embed = normalization(hw_embed, portion=1.0)        
+        hw_embed = normalization(hw_embed, portion=1.0)     
 
         if self.search_space in 'ofa':
             # samples for finetuning & test (query)
@@ -229,6 +229,7 @@ class Data:
             # samples for finetuning & test (query)
             rand_idx = torch.randperm(len(self.train_idx[device]))
             finetune_idx = self.train_idx[device][rand_idx[:num_sample]]
+            print("finetuning: ", finetune_idx)
             norm_latency = self.nas_norm_latency[device]
             x_finetune = [torch.stack([self.archs[_][0] for _ in finetune_idx]),
                         torch.stack([self.archs[_][1] for _ in finetune_idx])]
@@ -238,11 +239,13 @@ class Data:
         if self.search_space == 'nasbench201':
             # architecture candidates obtained by MetaD2A
             metad2a_idx = [self.arch_str2idx[_] for _ in self.arch_candidates['arch']]
+            print("test indexes: ", metad2a_idx)
             x_qry = [torch.stack([self.archs[_][0] for _ in metad2a_idx]),
                     torch.stack([self.archs[_][1] for _ in metad2a_idx])]
             y_qry = norm_latency[metad2a_idx].view(-1, 1)   
             y_qry_gt = latency[metad2a_idx].view(-1, 1)     
-            return hw_embed, x_finetune, y_finetune, x_qry, y_qry, device, y_finetune_gt, y_qry_gt
+            # import pdb; pdb.set_trace()   
+            return hw_embed, x_finetune, y_finetune, x_qry, y_qry, device, y_finetune_gt, y_qry_gt, finetune_idx, metad2a_idx
         elif self.search_space == 'ofa':
             return hw_embed, x_finetune, y_finetune, y_finetune_gt
 

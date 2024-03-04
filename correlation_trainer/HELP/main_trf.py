@@ -204,7 +204,7 @@ def pwl_train(args, model, dataloader, criterion, optimizer, scheduler, test_dat
                         torch.stack(list((inputs[3][indx] for indx in ex_thresh_inds[0]))),
                         torch.stack(list((inputs[4][indx] for indx in ex_thresh_inds[0])))]
                 X_adj_1, X_ops_1, zcp, norm_w_d_1, hw_idx = archs_1[0].to(args.cpu_gpu_device), archs_1[1].to(args.cpu_gpu_device), archs_1[2].to(args.cpu_gpu_device), archs_1[3].to(args.cpu_gpu_device), archs_1[4].to(args.cpu_gpu_device)
-                # import pdb; pdb.set_trace()
+                import pdb; pdb.set_trace()
                 s_1 = model(x_ops_1=X_ops_1, x_adj_1=X_adj_1.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=zcp, norm_w_d=norm_w_d_1, hw_idx=hw_idx).squeeze()
                 X_adj_2, X_ops_2, zcp, norm_w_d_2, hw_idx = archs_2[0].to(args.cpu_gpu_device), archs_2[1].to(args.cpu_gpu_device), archs_2[2].to(args.cpu_gpu_device), archs_2[3].to(args.cpu_gpu_device), archs_2[4].to(args.cpu_gpu_device)
                 s_2 = model(x_ops_1=X_ops_2, x_adj_1=X_adj_2.to(torch.long), x_ops_2=None, x_adj_2=None, zcp=zcp, norm_w_d=norm_w_d_2, hw_idx=hw_idx).squeeze()
@@ -611,11 +611,6 @@ results_dict = {}
 space = args.space
 for tr_ in range(args.num_trials):
     for sample_count in sample_counts:
-        if sample_count == 0:
-            train_net = False
-            sample_count = 53
-        else:
-            train_net = True
         # Create a function that chooses the best networks with a provided strategy, use only those networks
         sourcemetric = args.sampling_metric if args.source_sampon else 'random'
         train_samps = get_distinct_index(args, embedding_gen, args.space, sample_count, sourcemetric, args.metric_device)
@@ -650,27 +645,22 @@ for tr_ in range(args.num_trials):
         optimizer = torch.optim.AdamW(params_optimize, lr=args.lr, weight_decay=args.weight_decay)
         scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.eta_min)
         pt_kdt_l5, pt_spr_l5 = [], []
-        
-        if train_net:
-            for epoch in range(args.epochs):
-                if epoch > args.epochs - 5:
-                    start_time = time.time()
-                    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader, epoch)
-                    pt_kdt_l5.append(kdt)
-                    pt_spr_l5.append(spr)
-                    end_time = time.time()
-                    print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
-                else:
-                    start_time = time.time()
-                    model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloaderlowbs, epoch)
-                    end_time = time.time()
-                    print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+        for epoch in range(args.epochs):
+            if epoch > args.epochs - 5:
+                start_time = time.time()
+                model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloader, epoch)
+                pt_kdt_l5.append(kdt)
+                pt_spr_l5.append(spr)
+                end_time = time.time()
+                print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
+            else:
+                start_time = time.time()
+                model, num_test_items, mse_loss, spr, kdt = pwl_train(args, model, train_dataloader, criterion, optimizer, scheduler, test_dataloaderlowbs, epoch)
+                end_time = time.time()
+                print(f'Epoch {epoch + 1}/{args.epochs} | Train Loss: {mse_loss:.4f} | Epoch Time: {end_time - start_time:.2f}s | Spearman@{num_test_items}: {spr:.4f} | Kendall@{num_test_items}: {kdt:.4f}')
 
         # Save the trained network state_dict
         trained_state_dict = model.state_dict()
-        # Save model state_dict
-        # torch.save(model.state_dict(), "./HELP/help_gold_6226.pt")
-        # exit(0)
         for tfdevice in args.target_devices:
             if tfdevice not in results_dict:
                 results_dict[tfdevice] = {}
