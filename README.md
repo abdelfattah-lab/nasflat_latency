@@ -33,6 +33,8 @@ Our methodology provides deep insights into latency predictor design, yielding s
 
 Below are specific example commands that demonstrate how to execute various processes within the framework. These examples cover training from scratch, utilizing supplementary encodings, transferring predictors between spaces, and running NAS on a given search space.
 
+The files referenced below are located at correlation_trainer and nas_search.
+
 ### Train on FBNet using CAZ Sampler
 
 ```bash
