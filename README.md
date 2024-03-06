@@ -66,3 +66,22 @@ All scripts can be found at correlation_trainer/large_run_slurms/help_unified_jo
 ```bash
 python main.py --gpu 0 --mode 'meta-train' --seed 42 --num_trials 3 --name_desc 'help_baselines_r' --num_meta_train_sample 4000 --mc_sampling 10 --num_episodes 2000 --task_index 5 --search_space fbnet --num_samples 10
 ```
+
+
+## Citation
+
+
+## Citation
+
+If you use the code or data in your research, please use the following BibTex entry:
+
+```
+@misc{akhauri2024latency,
+      title={On Latency Predictors for Neural Architecture Search}, 
+      author={Yash Akhauri and Mohamed S. Abdelfattah},
+      year={2024},
+      eprint={2403.02446},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
