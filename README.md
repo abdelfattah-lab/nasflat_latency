@@ -2,6 +2,11 @@
 
 This repository contains the necessary resources and instructions to reproduce the results presented in our paper "On Latency Predictors for Neural Architecture Search." Our work introduces a comprehensive suite of latency prediction tasks and a novel latency predictor, NASFLAT, that significantly outperforms existing methods in hardware-aware NAS.
 
+## New Dataset Release
+We release as a separate file 'NASFLATBench_v1.pkl'. This pickle file contains all the embeddings for NASBench-201 and FBNet in a structured format, and may be useful for experiments outside of this framework. 
+Download the pickle file from [here](https://drive.google.com/file/d/1eiv5OVpoY3ch8SZ4doUNwtIb1ofxNIaA/view?usp=sharing).
+
+
 ## Environment Setup
 
 - Ensure the `env_setup.py` script is executed correctly for environment setup. Modify the script paths as necessary for your system.
