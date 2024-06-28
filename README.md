@@ -2,9 +2,10 @@
 
 This repository contains the necessary resources and instructions to reproduce the results presented in our paper "On Latency Predictors for Neural Architecture Search." Our work introduces a comprehensive suite of latency prediction tasks and a novel latency predictor, NASFLAT, that significantly outperforms existing methods in hardware-aware NAS.
 
-## Abstract
+## New Dataset Release
+We release as a separate file 'NASFLATBench_v1.pkl'. This pickle file contains all the embeddings for NASBench-201 and FBNet in a structured format, and may be useful for experiments outside of this framework. 
+Download the pickle file from [here](https://drive.google.com/file/d/1eiv5OVpoY3ch8SZ4doUNwtIb1ofxNIaA/view?usp=sharing).
 
-We address the challenge of co-optimizing accuracy and latency in neural network deployment, crucial for hardware-aware neural architecture search (NAS). Our work introduces a suite of latency prediction tasks and a latency predictor that incorporates advanced techniques in predictor architecture, NN sample selection, hardware device representation, and operation encoding schemes. The predictor, NASFLAT, demonstrates superior performance in latency prediction, facilitating a more efficient NAS process.
 
 ## Environment Setup
 
@@ -20,14 +21,6 @@ We address the challenge of co-optimizing accuracy and latency in neural network
 - Training and testing commands for the predictors are in `./correlation_trainer/large_run_slurms/unified_joblist.log`.
 - To reproduce results for MultiPredict and HELP, refer to `multipredict_unified_joblist.log` and `help_unified_joblist.log`.
 - For SLURM setups, use `parallelized_executor.sh`, adapting it as necessary for your environment. These commands can also be adjusted for non-SLURM execution.
-
-## Contributions
-
-1. **NN Sampling Methods:** We improve few-shot latency predictor efficiency by investigating and testing different NN sampling methods.
-2. **Operation Embeddings:** Introducing hardware-specific NN operation embeddings and supplementary encodings, we enhance prediction accuracy significantly.
-3. **NASFLAT Predictor:** NASFLAT combines effective techniques to deliver substantial improvements in latency prediction, aiding faster and more efficient NAS.
-
-Our methodology provides deep insights into latency predictor design, yielding substantial improvements across a variety of experimental settings and demonstrating considerable speed-up in NAS processes.
 
 ## Example Executions
 
@@ -77,4 +70,19 @@ All scripts can be found at correlation_trainer/large_run_slurms/help_unified_jo
 
 ```bash
 python main.py --gpu 0 --mode 'meta-train' --seed 42 --num_trials 3 --name_desc 'help_baselines_r' --num_meta_train_sample 4000 --mc_sampling 10 --num_episodes 2000 --task_index 5 --search_space fbnet --num_samples 10
+```
+
+## Citation
+
+If you use the code or data in your research, please use the following BibTex entry:
+
+```
+@misc{akhauri2024latency,
+      title={On Latency Predictors for Neural Architecture Search}, 
+      author={Yash Akhauri and Mohamed S. Abdelfattah},
+      year={2024},
+      eprint={2403.02446},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
 ```
