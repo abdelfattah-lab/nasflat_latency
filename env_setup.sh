@@ -1,1 +1,1 @@
-export PROJ_BPATH="/home/ya255/projects/flan_hardware"
+export PROJ_BPATH="/home/ya255/projects/nasflat_latency"

@@ -8,7 +8,7 @@ We address the challenge of co-optimizing accuracy and latency in neural network
 
 ## Environment Setup
 
-- Ensure the `env_setup.py` script is executed correctly for environment setup. Modify the script paths as necessary for your system.
+- Ensure the `env_setup.sh` script is executed correctly for environment setup. Modify the script paths as necessary for your system.
 
 ## Dataset Preparation
 
